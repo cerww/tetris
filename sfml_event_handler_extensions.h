@@ -263,27 +263,27 @@ struct track_hold_times :track_poll_times<clock> {
 	duration held_for(const sf::Keyboard::Key key) const noexcept {
 		if (m_keyboard_counts[key])
 			return std::chrono::duration_cast<duration>(this->time_of_last_poll() - *m_keyboard_counts[(size_t)key]);
-		return duration{0};
+		return duration{ 0 };
 	}
 
 	std::optional<time_point> held_since(sf::Keyboard::Key key) const noexcept {
 		return m_keyboard_counts[key];
 	}
 
-	void on_mouse_button_press(sf::RenderWindow&, const sf::Event::MouseButtonEvent& e) noexcept {		
+	void on_mouse_button_press(sf::RenderWindow&, const sf::Event::MouseButtonEvent& e) noexcept {
 		m_mouse_button_counts[e.button] = this->time_of_last_poll();
 	}
 
 	void on_mouse_button_release(sf::RenderWindow&, const sf::Event::MouseButtonEvent& e) noexcept {
 		m_mouse_button_counts[e.button] = std::nullopt;
 	}
-	
+
 	//may be 0 even when button is held(it's been held for a very shot time), use is_held to see if it's held
 	template<typename duration = std::chrono::milliseconds>
 	duration held_for(const sf::Mouse::Button button) const noexcept {
 		if (m_mouse_button_counts[button])
 			return std::chrono::duration_cast<duration>(this->time_of_last_poll() - *m_mouse_button_counts[(size_t)button]);
-		return duration{0};
+		return duration{ 0 };
 	}
 
 	std::optional<time_point> held_since(const sf::Mouse::Button button) const noexcept {
@@ -305,6 +305,10 @@ struct track_hold_times :track_poll_times<clock> {
 		m_buttons_pressed[e.joystickId][e.button] = std::nullopt;
 	}
 
+	void on_joystick_move(sf::RenderWindow& window, const sf::Event::JoystickMoveEvent e) {
+		m_joystick_axis[e.joystickId][(int)e.axis] = e.position;
+	}
+
 	bool is_pressed(uint32_t joystick_id, uint32_t button_id)const noexcept {
 		return m_buttons_pressed[joystick_id][button_id].has_value();
 	}
@@ -324,6 +328,7 @@ private:
 	std::array<std::array<std::optional<std::chrono::steady_clock::time_point>, sf::Joystick::ButtonCount>, sf::Joystick::Count> m_buttons_pressed;
 	std::array<std::optional<time_point>, (size_t)sf::Keyboard::Key::KeyCount> m_keyboard_counts = {};
 	std::array<std::optional<time_point>, (size_t)sf::Mouse::Button::ButtonCount> m_mouse_button_counts = {};
+	std::array<std::array<float, sf::Joystick::AxisCount>,sf::Joystick::Count> m_joystick_axis = {};
 };
 
 struct extension_obj {

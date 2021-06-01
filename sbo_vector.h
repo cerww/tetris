@@ -205,7 +205,6 @@ struct sbo_vector {
 		return begin();
 	}
 
-
 	void push_back(T thing) {
 		if (size() == capacity()) {
 			reserve(capacity() * 2);//capacity>0 always

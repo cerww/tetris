@@ -391,10 +391,10 @@ struct tetris_game {
 private:
 	bool is_tspin() const noexcept {
 		return (
-			(piece_center_y + 1 < 20 && piece_center_x + 1 < 10
+			(piece_center_y + 1 < 22 && piece_center_x + 1 < 10
 				 ? (board.minos[piece_center_x + 1][piece_center_y + 1] != tetris_block::empty)
 				 : 1) +
-			(piece_center_y + 1 < 20 && piece_center_x - 1 < 10
+			(piece_center_y + 1 < 22 && piece_center_x - 1 >= 0
 				 ? (board.minos[piece_center_x - 1][piece_center_y + 1] != tetris_block::empty)
 				 : 1) +
 			(piece_center_y - 1 >= 0 && piece_center_x + 1 < 10

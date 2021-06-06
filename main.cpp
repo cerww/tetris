@@ -1,9 +1,13 @@
 #include <iostream>
+#include <unordered_set>
+
 
 #include "tetris_stuff.h"
 #include "sfml_event_handler.h"
 #include "sfml_event_handler_extensions.h"
 #include "keyboard_tetris_player.h"
+#include <boost/asio.hpp>
+#include "ai.h"
 
 struct game_settings {
 	std::vector<std::pair<action, sf::Keyboard::Key>> keybinds = {
@@ -26,10 +30,10 @@ struct game_settings {
 	};
 
 	std::vector<std::tuple<action, sf::Joystick::Axis, float>> joy_stick_axis = {
-		{action::move_left, sf::Joystick::Axis::PovX, -0.5},
-		{action::move_right, sf::Joystick::Axis::PovX, 0.5},
-		{action::soft_drop, sf::Joystick::Axis::PovY, -0.5},
-		{action::hard_drop, sf::Joystick::Axis::PovY, 0.5},
+		{action::move_left, sf::Joystick::Axis::PovX, -0.5f},
+		{action::move_right, sf::Joystick::Axis::PovX, 0.5f},
+		{action::soft_drop, sf::Joystick::Axis::PovY, -0.5f},
+		{action::hard_drop, sf::Joystick::Axis::PovY, 0.5f},
 	};
 
 
@@ -71,9 +75,9 @@ sf::Color mino_to_color(tetris_block mino_color) {
 void draw_piece(sf::RenderWindow& window, std::span<const std::pair<int, int>> offsets, int x, int y, sf::Color color, double scale = 1.0) {
 	for (const auto piece : offsets) {
 		sf::RectangleShape block(sf::Vector2f(20, 20) * (float)scale);
-		block.setPosition(x + piece.first * 20 * scale, y - piece.second * 20 * scale);
+		block.setPosition(x + piece.first * 20.f * (float)scale, y - piece.second * 20.f * (float)scale);
 		block.setFillColor(color);
-		block.setOutlineThickness(-0.8);
+		block.setOutlineThickness(-0.8f);
 		block.setOutlineColor(sf::Color(200, 200, 200, 180));
 		window.draw(block);
 	}
@@ -89,24 +93,6 @@ void draw_tetris_board(sf::RenderWindow& window, const tetris_game_update& stuff
 	board_outline.setOutlineColor(sf::Color::Green);
 	board_outline.setOutlineThickness(1);
 	window.draw(board_outline);
-	//draw lines
-
-	/*
-	for (int i = 0; i < 10; ++i) {
-		sf::RectangleShape gridline_vertical(sf::Vector2f(1, 400));
-		gridline_vertical.setPosition(x + i * 20, y - 400 + 20);
-		gridline_vertical.setFillColor(sf::Color(90, 90, 90, 180));
-		window.draw(gridline_vertical);
-	}
-
-	for (int i = 0; i < 20; ++i) {
-		sf::RectangleShape gridline_horizontal(sf::Vector2f(200, 1));
-		gridline_horizontal.setPosition(x, y - i * 20 + 20);
-		gridline_horizontal.setFillColor(sf::Color(90, 90, 90, 180));
-		window.draw(gridline_horizontal);
-	}
-	*/
-
 
 	for (const auto [i,piece] : ranges::views::enumerate(stuff.game_state.preview_pieces | ranges::views::take(5))) {
 		draw_piece(
@@ -122,7 +108,7 @@ void draw_tetris_board(sf::RenderWindow& window, const tetris_game_update& stuff
 			sf::RectangleShape block(sf::Vector2f(20, 20));
 			block.setPosition(x + i * 20, y - j * 20);
 			block.setFillColor(mino_to_color(stuff.game_state.board.minos[i][j]));
-			block.setOutlineThickness(-0.8);
+			block.setOutlineThickness(-0.8f);
 			block.setOutlineColor(sf::Color(200, 200, 200, 180));
 			window.draw(block);
 		}
@@ -156,7 +142,7 @@ enum struct game_state {
 	dying,
 	dead,
 	settings,
-	
+
 };
 
 struct starting {
@@ -185,7 +171,7 @@ int main() {
 			.delay_between_drops = 20ms,
 			.garbage_delay = 30ms,
 			.max_soft_dropping_time = 5s,
-			.soft_drop_multiplier = 10
+			.soft_drop_multiplier = 50
 		}
 	);
 

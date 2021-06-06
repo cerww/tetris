@@ -31,7 +31,7 @@ struct tetris_game_keyboard_player {
 		if (!m_is_doing_stuff) {
 			return;
 		}
-		m_garbage_recieved.push_back(garbage_recieved);
+		m_garbage_recieved.push_back((int8_t)garbage_recieved);
 
 		if (m_delay_between_pieces.has_value()) {
 			m_delay_between_pieces.value() -= update.time_since_last_update;
@@ -136,7 +136,7 @@ struct tetris_game_keyboard_player {
 			if (next_game_state.preview_pieces.size() <= 6) {
 				next_game_state.generate_new_pieces(m_random_engine);
 			}
-			garbage_sent_this_update = on_line_clear(lines_cleared, m_last_rotation, next_game_state);
+			garbage_sent_this_update = on_piece_lock(lines_cleared, m_last_rotation, next_game_state);
 		} else if (update.actions_held[(int)action::soft_drop]) {
 			if (next_game_state.can_move_piece_down()) {
 				m_soft_drop_timing -= std::chrono::microseconds(update.time_since_last_update) * m_settings.soft_drop_multiplier;
@@ -161,7 +161,7 @@ struct tetris_game_keyboard_player {
 				if (next_game_state.preview_pieces.size() <= 6) {
 					next_game_state.generate_new_pieces(m_random_engine);
 				}
-				garbage_sent_this_update += on_line_clear(lines_cleared.value(), m_last_rotation, next_game_state);
+				garbage_sent_this_update += on_piece_lock(lines_cleared.value(), m_last_rotation, next_game_state);
 			}
 		}
 		if (!next_game_state.can_move_piece_down() && m_max_soft_dropping_time <= 0s) {
@@ -169,7 +169,7 @@ struct tetris_game_keyboard_player {
 			if (next_game_state.preview_pieces.size() <= 6) {
 				next_game_state.generate_new_pieces(m_random_engine);
 			}
-			garbage_sent_this_update = on_line_clear(lines_cleared, m_last_rotation, next_game_state);
+			garbage_sent_this_update = on_piece_lock(lines_cleared, m_last_rotation, next_game_state);
 		}
 
 		{
@@ -188,9 +188,18 @@ struct tetris_game_keyboard_player {
 	}
 
 private:
-	int on_line_clear(int lines_cleared, rotate_info tspin_stuff, tetris_game& state) {
+	int on_piece_lock(int lines_cleared, rotate_info tspin_stuff, tetris_game& state) {
 		m_can_swap_held_piece = true;
-		const auto lines_sent = m_garbage_calculator(lines_cleared, tspin_stuff, state);
+		auto lines_sent = m_garbage_calculator(lines_cleared, tspin_stuff, state);
+		while (lines_sent && !m_garbage_recieved.empty()) {
+			const auto amount_to_subtract = std::min(lines_sent, (int)m_garbage_recieved.back());
+			m_garbage_recieved.back() -= amount_to_subtract;
+			lines_sent -= amount_to_subtract;
+			if (m_garbage_recieved.back() <= 0) {
+				m_garbage_recieved.pop_back();
+			}
+		}
+
 		m_delay_between_pieces = m_settings.delay_between_drops;
 		m_max_soft_dropping_time = m_settings.max_soft_dropping_time;
 		if (!m_garbage_recieved.empty()) {
@@ -205,7 +214,7 @@ private:
 					//std::cout << hole_idx << std::endl;
 				}
 				m_garbage_recieved.clear();
-				state.spawn_garbage(std::span(stuff.data(), std::min(32,(int)stuff.size())));
+				state.spawn_garbage(std::span(stuff.data(), std::min(32, (int)stuff.size())));
 			} else {
 				sbo_vector<int, 20> stuff;
 				stuff.resize(std::accumulate(m_garbage_recieved.begin(), m_garbage_recieved.end(), 0));
@@ -218,6 +227,7 @@ private:
 				state.spawn_garbage(stuff);
 			}
 		}
+
 		return lines_sent;
 	}
 

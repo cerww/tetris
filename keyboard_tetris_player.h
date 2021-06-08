@@ -21,7 +21,7 @@ struct tetris_game_keyboard_player {
 		return {
 			m_game,
 			std::exchange(m_garbage_sent_since_last_update, 0),
-			m_garbage_calculator.m_current_combo,
+			m_garbage_calculator.current_combo,
 			std::accumulate(m_garbage_recieved.begin(), m_garbage_recieved.end(), 0),
 			m_is_dead
 		};

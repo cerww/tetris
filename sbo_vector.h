@@ -28,6 +28,8 @@ struct sbo_vector {
 		resize(init_size,a);
 	}
 
+	sbo_vector(std::initializer_list<T> elems):sbo_vector(elems.begin(),elems.end()) { }
+
 	template<typename I, typename S>
 	sbo_vector(I&& i, S&& s) {
 		reserve(ranges::distance(i, s));

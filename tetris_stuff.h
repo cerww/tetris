@@ -121,7 +121,7 @@ constexpr static std::array<std::array<std::array<std::pair<int, int>, 4>, 4>, 7
 			}
 		},
 		{
-			{//O
+			{//O,"middle" is bottom left
 				{
 					std::pair{0, 0}, std::pair{1, 1}, std::pair{1, 0}, std::pair{0, 1}
 				},
@@ -288,6 +288,7 @@ struct tetris_game {
 		return number_of_lines_cleared;
 	}
 
+	
 	bool try_spawn_new_piece() {
 		current_piece = preview_pieces.front();
 		piece_center_x = 4;
@@ -313,6 +314,7 @@ struct tetris_game {
 	}
 
 	bool swap_held_piece() {
+		//requires piece to have spawned already
 		if (held_piece) {
 			std::swap(*held_piece, current_piece);
 			orientation = 0;
@@ -448,44 +450,44 @@ struct garbage_calculator {
 	static constexpr std::array<int, 15> combo_table = {
 		0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5
 	};
-
 	int operator()(int lines_cleared, rotate_info last_rotation, const tetris_game& state) {
 		if (lines_cleared == 0) {
-			m_is_b2b = false;
-			m_current_combo = -1;
+			is_b2b = false;
+			current_combo = -1;
 			return 0;
 		}
-		++m_current_combo;
+		++current_combo;
 
 		if (lines_cleared == 1) {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
-				return 2 + std::exchange(m_is_b2b, true) + combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)];
+				return 2 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
-				return combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)];
+				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			}
 		} else if (lines_cleared == 2) {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
-				return 4 + std::exchange(m_is_b2b, true) + combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)];
+				return 4 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
-				return 1 + combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)];
+				return 1 + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			}
 		} else if (lines_cleared == 3) {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
-				return 6 + std::exchange(m_is_b2b, true) + combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)];
+				return 6 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
-				return combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)] + 2;
+				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 2;
 			}
 		} else if (lines_cleared == 4) {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
-				return 8 + std::exchange(m_is_b2b, true) + combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)];
+				return 8 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
-				return combo_table[std::min((int)m_current_combo, (int)combo_table.size() - 1)] + 4;
+				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 4;
 			}
 		}
 
 		return 0;
 	}
 
-	bool m_is_b2b = false;
-	int m_current_combo = -1;
+	bool is_b2b = false;
+	int current_combo = -1;
+
 };

@@ -26,6 +26,7 @@ struct sbo_vector {
 	
 	explicit sbo_vector(size_t init_size,const T& a) {
 		resize(init_size,a);
+		assert(m_size >= 0);
 	}
 
 	sbo_vector(std::initializer_list<T> elems):sbo_vector(elems.begin(),elems.end()) { }
@@ -37,18 +38,23 @@ struct sbo_vector {
 		
 		auto it = std::uninitialized_copy(i, s, begin());
 		m_size = (int)std::distance(begin(), it);
+		assert(m_size >= 0);
 	}
 
 	sbo_vector(const sbo_vector& other) {
 		reserve(other.size());
 		std::uninitialized_copy(other.begin(), other.end(), begin());
 		m_size = other.m_size;
+		assert(m_size >= 0);
 	}
 
 	sbo_vector(sbo_vector&& other) noexcept {
 		if (other.is_sbo()) {
 			std::uninitialized_move(other.begin(), other.end(), begin());
 			m_size = (int)other.size();
+			other.clear();
+			assert(m_size >= 0);
+			assert(other.m_size >= 0);
 		} else {
 			m_data = std::exchange(other.m_data, nullptr);
 			m_size = std::exchange(other.m_size, 0);
@@ -147,8 +153,8 @@ struct sbo_vector {
 	}
 
 	void clear() {
-		m_size = 0;
 		std::destroy(begin(), end());
+		m_size = 0;
 	}
 
 	bool is_sbo() const noexcept {

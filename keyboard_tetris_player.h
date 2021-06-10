@@ -190,7 +190,7 @@ struct tetris_game_keyboard_player {
 private:
 	int on_piece_lock(int lines_cleared, rotate_info tspin_stuff, tetris_game& state) {
 		m_can_swap_held_piece = true;
-		auto lines_sent = m_garbage_calculator(lines_cleared, tspin_stuff, state);
+		auto lines_sent = m_garbage_calculator(lines_cleared, tspin_stuff);
 		while (lines_sent && !m_garbage_recieved.empty()) {
 			const auto amount_to_subtract = std::min(lines_sent, (int)m_garbage_recieved.back());
 			m_garbage_recieved.back() -= amount_to_subtract;
@@ -206,12 +206,10 @@ private:
 			if (true) {
 				sbo_vector<int, 20> stuff;
 				stuff.reserve(std::accumulate(m_garbage_recieved.begin(), m_garbage_recieved.end(), 0));
-				//std::cout << stuff.capacity() << std::endl;
 				const std::uniform_int_distribution<> dist(0, 9);
 				for (auto num_garb : m_garbage_recieved) {
 					const auto hole_idx = dist(m_random_engine);
 					stuff.resize(stuff.size() + num_garb, hole_idx);
-					//std::cout << hole_idx << std::endl;
 				}
 				m_garbage_recieved.clear();
 				state.spawn_garbage(std::span(stuff.data(), std::min(32, (int)stuff.size())));

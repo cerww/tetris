@@ -8,6 +8,7 @@
 #include "keyboard_tetris_player.h"
 #include <boost/asio.hpp>
 #include "ai.h"
+#include "tetris_ai_player.h"
 
 struct game_settings {
 	std::vector<std::pair<action, sf::Keyboard::Key>> keybinds = {
@@ -59,7 +60,7 @@ sf::Color ghost_piece_color(tetris_piece p) {
 
 sf::Color mino_to_color(tetris_block mino_color) {
 	static const auto colors = std::array{
-		sf::Color(255, 255, 255),
+		sf::Color(220, 220, 220),
 		sf::Color(255, 165, 0),
 		sf::Color::Blue,
 		sf::Color::Yellow,
@@ -157,6 +158,11 @@ struct dead { };
 
 
 int main() {
+	boost::asio::io_context executer;
+	auto y = std::jthread([&]() {
+		auto work_guard = boost::asio::make_work_guard(executer);
+		executer.run();
+	});
 	sf::RenderWindow window(sf::VideoMode(1500, 800), "wat");
 
 	sfml_event_handler<track_hold_times<>> event_handler(window);
@@ -175,9 +181,15 @@ int main() {
 		}
 	);
 
+	
+	auto ai_player = tetris_ai_player(executer.get_executor(),ai_settings{
+		.piece_delay = 1s
+	});
+	
 	std::array<bool, (int)action::size> actions = {};
 
 	player.start_doing_stuff_now();
+	ai_player.start_doing_stuff();
 
 	while (window.isOpen()) {
 		event_handler.poll_stuff();
@@ -216,6 +228,7 @@ int main() {
 		actions = actions_this_frame;
 
 		const auto game_update = player.get_update();
+		const auto ai_game_update = ai_player.get_update();
 		if (game_update.died) {
 			player.stop_doing_stuff();
 		}
@@ -223,9 +236,11 @@ int main() {
 			std::cout << game_update.garbage_sent << std::endl;
 		}
 		player.recieve_update({{actions}, {new_actions_this_frame}, event_handler.time_since_last_poll()}, 0);
+		ai_player.receive_update(event_handler.time_since_last_poll(), game_update.garbage_sent);
 
 		window.clear(sf::Color(100, 100, 100));
 		draw_tetris_board(window, game_update, 200, 600);
+		draw_tetris_board(window, ai_game_update, 600, 600);
 		window.display();
 	}
 

@@ -450,9 +450,9 @@ struct garbage_calculator {
 	static constexpr std::array<int, 15> combo_table = {
 		0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5
 	};
-	int operator()(int lines_cleared, rotate_info last_rotation, const tetris_game& state) {
+	int operator()(int lines_cleared, rotate_info last_rotation) {
 		if (lines_cleared == 0) {
-			is_b2b = false;
+			//is_b2b = false;
 			current_combo = -1;
 			return 0;
 		}
@@ -462,24 +462,28 @@ struct garbage_calculator {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
 				return 2 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
+				is_b2b = false;
 				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			}
 		} else if (lines_cleared == 2) {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
 				return 4 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
+				is_b2b = false;
 				return 1 + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			}
 		} else if (lines_cleared == 3) {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
 				return 6 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
+				is_b2b = false;
 				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 2;
 			}
 		} else if (lines_cleared == 4) {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
 				return 8 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)];
 			} else {
+				is_b2b = true;
 				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 4;
 			}
 		}

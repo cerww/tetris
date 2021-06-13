@@ -6,15 +6,9 @@
 #include "tetris_stuff.h"
 #include <compare>
 #include <ranges>
-
-
-constexpr int get_col_height(std::span<const tetris_block> col) {
-	int ret = 20;
-	while (ret >= 1 && col[ret] == tetris_block::empty) {
-		--ret;
-	}
-	return ret;
-}
+#include "bytell_hash_map.hpp"
+#include <mmintrin.h>
+#include <immintrin.h>
 
 constexpr auto is_garbage_row = [](auto&& row) {
 	return ranges::contains(row, tetris_block::garbage);
@@ -43,7 +37,7 @@ struct piece_hard_drop_spot {
 	int8_t orientation = 0;
 };
 
-inline std::array<sbo_vector<piece_hard_drop_spot, 30>, 7> possible_hard_drop_spots = {
+inline std::array<sbo_vector<piece_hard_drop_spot, 40>, 7> possible_hard_drop_spots = {
 	{
 		{//L
 			piece_hard_drop_spot(1, 0),
@@ -225,16 +219,15 @@ inline std::array<sbo_vector<piece_hard_drop_spot, 30>, 7> possible_hard_drop_sp
 };
 
 struct next_move_thing {
-	tetris_game game;
-	rotate_info rotate_stuff;
-	std::tuple<int, int, int> where;//x,y,orientation
 	int lines_cleared = 0;
 	int garbage_sent = 0;
+	tetris_game game;
 	garbage_calculator garb_state;
 	bool dead = false;
+	rotate_info rotate_stuff;
 };
 
-template<typename P, typename E, typename F>
+template<typename P, typename E, typename F, typename F2>
 double iterate_board(
 	int ply_depth,
 	tetris_game game,
@@ -242,11 +235,12 @@ double iterate_board(
 	E&& evaluate,
 	garbage_calculator prev_garb_state,
 	int total_lines_sent,
-	F&& filter
+	int total_lines_cleared,
+	F&& filter,
+	F2&& filter2
 ) {
-
 	if (!ply_depth) {
-		return evaluate(game, prev_garb_state, total_lines_sent);
+		return evaluate(game, prev_garb_state, total_lines_sent,total_lines_cleared);
 	}
 
 	double ret = -1293212312;
@@ -256,16 +250,37 @@ double iterate_board(
 	}
 
 	for (next_move_thing next : get_possible_next(game, prev_garb_state)) {
-		if (filter(next.game)) {
-			const auto val = iterate_board(ply_depth - 1, std::move(next.game), get_possible_next, evaluate, next.garb_state, total_lines_sent + next.garbage_sent, filter);
+		if (ply_depth == 1 || (filter2(game, next.game, next.garbage_sent, prev_garb_state, next.garb_state) && filter(next.game))) {
+			const auto val = iterate_board(
+				ply_depth - 1,
+				std::move(next.game),
+				get_possible_next,
+				evaluate,
+				next.garb_state,
+				total_lines_sent + next.garbage_sent,
+				next.lines_cleared + total_lines_cleared,
+				filter,
+				filter2
+			);
 			ret = std::max(ret, val);
 		}
 	}
 	if (game.held_piece != game.current_piece) {
 		game.swap_held_piece();
 		for (next_move_thing next : get_possible_next(game, prev_garb_state)) {
-			if (filter(next.game)) {
-				const auto val = iterate_board(ply_depth - 1, std::move(next.game), get_possible_next, evaluate, next.garb_state, total_lines_sent + next.garbage_sent, filter);
+
+			if (ply_depth == 1 || (filter2(game,next.game,next.garbage_sent,prev_garb_state,next.garb_state) && filter(next.game))) {
+				const auto val = iterate_board(
+					ply_depth - 1,
+					std::move(next.game),
+					get_possible_next,
+					evaluate,
+					next.garb_state,
+					total_lines_sent + next.garbage_sent,
+					next.lines_cleared + total_lines_cleared,
+					filter,
+					filter2
+				);
 				ret = std::max(ret, val);
 			}
 		}
@@ -273,27 +288,36 @@ double iterate_board(
 	return ret;
 }
 
-template<typename P, typename E, typename F>
+template<typename P, typename E, typename F, typename F2>
 next_move_thing iterate_board1(
 	int ply_depth_init,
 	tetris_game game,
 	P&& possible_next,
 	E&& evaluate,
 	garbage_calculator prev_garb_state,
-	F&& filter
+	F&& filter,
+	F2&& filter2
 ) {
-
 	double ret_val = -129321312312;
 	next_move_thing ret_move;
 
-
 	if (!game.try_spawn_new_piece()) {
-		return next_move_thing{std::move(game), {false, false, false}, {}, 0, 0, prev_garb_state, true};
+		return next_move_thing{0, 0, std::move(game), prev_garb_state, true, {false, false, false}};
 	}
 	const auto next_ = possible_next(game, prev_garb_state);
 	for (next_move_thing next : next_) {
 		if (filter(next.game)) {
-			const auto val = iterate_board(ply_depth_init - 1, next.game, possible_next, evaluate, next.garb_state, 0 + next.garbage_sent, filter);
+			const auto val = iterate_board(
+				ply_depth_init - 1,
+				next.game,
+				possible_next,
+				evaluate,
+				next.garb_state,
+				next.garbage_sent,
+				next.lines_cleared,
+				filter,
+				filter2
+			);
 			if (val > ret_val) {
 				ret_val = val;
 				ret_move = std::move(next);
@@ -305,7 +329,17 @@ next_move_thing iterate_board1(
 		const auto next_ = possible_next(game, prev_garb_state);
 		for (next_move_thing next : next_) {
 			if (filter(next.game)) {
-				const auto val = iterate_board(ply_depth_init - 1, next.game, possible_next, evaluate, next.garb_state, 0 + next.garbage_sent, filter);
+				const auto val = iterate_board(
+					ply_depth_init - 1,
+					next.game,
+					possible_next,
+					evaluate,
+					next.garb_state,
+					next.garbage_sent,
+					next.lines_cleared,
+					filter,
+					filter2
+				);
 				if (val > ret_val) {
 					ret_val = val;
 					ret_move = std::move(next);
@@ -322,7 +356,24 @@ struct compressed_board {
 
 	static compressed_board from_board(const tetris_board& b) {
 		compressed_board ret;
+		//const __m256i compare_to = _mm256_set1_epi8(0);
 		for (int x = 0; x < 10; ++x) {
+			//return ret;
+			/*
+			const __m256i thingys = _mm256_set_epi8(
+				(char)b.minos[x][0], (char)b.minos[x][1], (char)b.minos[x][2], (char)b.minos[x][3],
+				(char)b.minos[x][4], (char)b.minos[x][5], (char)b.minos[x][6], (char)b.minos[x][7],
+				(char)b.minos[x][8], (char)b.minos[x][9], (char)b.minos[x][10], (char)b.minos[x][11],
+				(char)b.minos[x][12], (char)b.minos[x][13], (char)b.minos[x][14], (char)b.minos[x][15],
+				(char)b.minos[x][16], (char)b.minos[x][17], (char)b.minos[x][18], (char)b.minos[x][19],
+				(char)b.minos[x][20], (char)b.minos[x][21], (char)b.minos[x][22], (char)b.minos[x][23],
+				(char)b.minos[x][24], (char)b.minos[x][25], (char)b.minos[x][26], (char)b.minos[x][27],
+				(char)b.minos[x][28], (char)b.minos[x][29], (char)b.minos[x][30], (char)b.minos[x][31]
+			);
+			const auto res = _mm256_cmpeq_epi8_mask(compare_to, thingys);
+			ret.board[x] = _cvtmask32_u32(res);
+			*/
+
 			for (int y = 0; y < b.minos[x].size(); ++y) {
 				if (b.minos[x][y] != tetris_block::empty) {
 					ret.board[x] |= 1 << y;
@@ -338,40 +389,28 @@ struct compressed_board {
 template<>
 struct std::hash<compressed_board> {
 	uint64_t operator()(const compressed_board& board) const noexcept {
-		return std::hash<std::string_view>()(std::string_view((char*)board.board.data(), (char*)board.board.data() + 40));
+		uint64_t ret = 0;
+		for (int i = 0; i < 10; ++i) {
+			ret ^= std::hash<uint32_t>()(board.board[i]) + 0x9e3779b9 + (ret << 6) + (ret >> 2);
+		}
+		return ret;
 	}
 };
 
+
+
 struct flatstacking_ai {
-
-	struct data_i_care_about {
-		bool is_alive = true;
-		int num_holes = 0;
-		int height = 0;
-		int garbage_height = 0;
-		double varience = 0;
-		int garbage_sent = 0;
-		int covered_squares = 0;
-		int covered_squares_squared = 0;
-
-		auto operator<=>(const data_i_care_about& other) const noexcept = default;
-
-		double to_value_i_care_about() const noexcept {
-			return 100 + is_alive * (garbage_sent - std::abs(height - 7) - num_holes - varience - garbage_height);
-		}
-
-	};
-
 	next_move_thing operator()(const tetris_game& game, garbage_calculator garbage_state, int garbage_receiving/*ignore this var for this fn*/) const {
-		std::unordered_set<compressed_board> seen_boards;
-		seen_boards.reserve(300);
+		//std::unordered_set<compressed_board> seen_boards;
+		//seen_boards.reserve(300);
+		ska::bytell_hash_set<compressed_board> seen_boards;
+		seen_boards.reserve(60000);
 		return iterate_board1(
-			4, game,
+			3, game,
 			[](const tetris_game& game, garbage_calculator calc) {//next
 				std::vector<next_move_thing> ret;
-				ret.reserve(10);
+				ret.reserve(possible_hard_drop_spots[(int)game.current_piece].size());
 				for (const auto& a : possible_hard_drop_spots[(int)game.current_piece]) {
-					//std::cout << (int)a.x << ' ' << (int)a.orientation << std::endl;
 					next_move_thing thing;
 					thing.garb_state = calc;
 					thing.game = game;
@@ -384,31 +423,33 @@ struct flatstacking_ai {
 				}
 				return ret;
 			},
-			[this](const tetris_game& game, garbage_calculator calc, int garb_sent) {
-				return evaluate_board(game, garb_sent);
+			[this](const tetris_game& game, garbage_calculator calc, int garb_sent,int lines_cleared) {
+				return evaluate_board(game, garb_sent, lines_cleared);
 			},
 			garbage_state,
-			[&](const tetris_game& game) {
+			[&](const tetris_game& game)->bool {
 				return seen_boards.insert(compressed_board::from_board(game.board)).second;
+			},
+			[](const tetris_game& prev_game,const tetris_game& next_game,int garbage_sent,garbage_calculator prev_garb_state,garbage_calculator next_garb_state) {
+				return true;
 			}
 		);
 
 	}
 
-	static std::tuple<int, int> bumpiness(const tetris_board& board, int well_idx, std::array<int, 10> heights) {
+	static std::tuple<int, int> bumpiness(const tetris_board& board, int well_idx, std::array<int8_t, 10> heights) {
 		std::shift_left(heights.begin() + well_idx, heights.end(), 1);
 		int b = 0;
 		int bumpiness_squared = 0;
 		std::adjacent_difference(heights.begin(), heights.end() - 1, heights.begin());
 		for (int height_diff : std::span(heights.begin() + 1, heights.end() - 1)) {
-			b += height_diff;
+			b += std::abs(height_diff);
 			bumpiness_squared += height_diff * height_diff;
 		}
-		//std::cout << bumpiness_squared << std::endl;
 		return {b, bumpiness_squared};
 	}
 
-	static std::tuple<int, int> covered_slots(const tetris_board& board, std::array<int, 10> heights) {
+	static std::tuple<int, int> covered_slots(const tetris_board& board, std::array<int8_t, 10> heights) {
 		int covered_slots = 0;
 		int covered_square = 0;
 
@@ -421,23 +462,19 @@ struct flatstacking_ai {
 				}
 			}
 		}
-		//std::cout << covered_slots << std::endl;
-
 		return {covered_slots, covered_square};
 	}
 
-	static double evaluate_board(const tetris_game& game, int total_garbage_sent) {
+	static double evaluate_board(const tetris_game& game, int total_garbage_sent,int total_lines_cleared) {
 		const auto rows = ranges::views::iota(0, (int)game.board.minos[0].size()) | ranges::views::transform([&](int y) {
 			return ranges::views::iota(0, (int)game.board.minos.size()) | ranges::views::transform([&, y_ = y](int x) {
 				return game.board.minos[x][y];
 			});
 		});
 
-		std::array<int, 10> heights = {};
-		//ranges::copy(game.board.minos | ranges::views::transform([](auto& a) { return get_col_height(a); }), heights);
+		std::array<int8_t, 10> heights = {};
 		for (int i = 0; i < heights.size(); ++i) {
-			heights[i] = get_col_height(game.board.minos[i]);
-			//std::cout << heights[i] << std::endl;
+			heights[i] = (int8_t)get_col_height(game.board.minos[i]);
 		}
 
 		const auto [lowest_height_it, max_height_it] = std::ranges::minmax_element(heights);
@@ -446,10 +483,10 @@ struct flatstacking_ai {
 		const auto max_height = *max_height_it;
 		const auto [covered, covered_squared] = covered_slots(game.board, heights);
 		const auto [bumpines, bumpiness_squared] = bumpiness(game.board, lowest_height_idx, heights);
-
-
-		return total_garbage_sent * total_garbage_sent - std::abs(bumpines) - bumpiness_squared - std::abs(covered) - covered_squared;
+		double ret = total_garbage_sent * total_garbage_sent - std::abs(bumpines) - bumpiness_squared - std::abs(covered) * 2 - covered_squared * 3;
+		if(total_lines_cleared && total_garbage_sent==0) {
+			ret -= 5;
+		}
+		return ret;
 	}
-
-
 };

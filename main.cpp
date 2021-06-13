@@ -183,7 +183,7 @@ int main() {
 
 	
 	auto ai_player = tetris_ai_player(executer.get_executor(),ai_settings{
-		.piece_delay = 1s
+		.piece_delay = 500ms
 	});
 	
 	std::array<bool, (int)action::size> actions = {};
@@ -235,7 +235,7 @@ int main() {
 		if (game_update.garbage_sent) {
 			std::cout << game_update.garbage_sent << std::endl;
 		}
-		player.recieve_update({{actions}, {new_actions_this_frame}, event_handler.time_since_last_poll()}, 0);
+		player.recieve_update({ {actions}, {new_actions_this_frame}, event_handler.time_since_last_poll() }, ai_game_update.garbage_sent);
 		ai_player.receive_update(event_handler.time_since_last_poll(), game_update.garbage_sent);
 
 		window.clear(sf::Color(100, 100, 100));

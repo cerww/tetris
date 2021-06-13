@@ -1,4 +1,6 @@
 #pragma once
+#include <iostream>
+
 #include "tetris_stuff.h"
 #include "ref_count_ptr.h"
 #include <tuple>
@@ -52,7 +54,7 @@ struct tetris_ai_player :ref_counted {
 			if (m_has_next) {
 				m_game = std::move(m_game_next);
 				m_garbage_calculator = m_garbage_calculator_next;
-				m_garbage_sent_since_last_update += m_garbage_sent_since_last_update_next;
+				m_garbage_sent_since_last_update += std::exchange(m_garbage_sent_since_last_update_next, 0);
 				m_dead = m_dead_next;
 				if (!m_garbage_recieving.empty()) {
 					sbo_vector<int, 20> stuff;

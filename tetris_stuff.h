@@ -19,6 +19,7 @@
 
 using namespace std::literals;
 
+
 template<typename I, typename S>
 struct subrange {
 	subrange() = default;
@@ -63,10 +64,7 @@ enum struct tetris_piece :int8_t {
 };
 
 struct tetris_board {
-
-
-	std::array<std::array<tetris_block, 32>, 10> minos = {};
-
+	alignas(32) std::array<std::array<tetris_block, 32>, 10> minos = {};
 
 	bool can_place_piece_on_board(int x, int y, std::span<const std::pair<int, int>> piece_offsets) const noexcept {
 		return std::ranges::all_of(piece_offsets, [&](std::pair<int, int> offset) {
@@ -78,12 +76,25 @@ struct tetris_board {
 		});
 	}
 
+	bool can_place_piece_on_board(int x, int y, std::array<std::pair<int, int>, 4> piece_offsets) const noexcept {
+
+		return ((x + piece_offsets[0].first) >= 0 && (x + piece_offsets[0].first) < 10 && (y + piece_offsets[0].second) >= 0 && (y + piece_offsets[0].second) <= 22 &&
+					minos[(x + piece_offsets[0].first)][(y + piece_offsets[0].second)] == tetris_block::empty) &&
+				((x + piece_offsets[1].first) >= 0 && (x + piece_offsets[1].first) < 10 && (y + piece_offsets[1].second) >= 0 && (y + piece_offsets[1].second) <= 22 &&
+					minos[(x + piece_offsets[1].first)][(y + piece_offsets[1].second)] == tetris_block::empty) &&
+				((x + piece_offsets[2].first) >= 0 && (x + piece_offsets[2].first) < 10 && (y + piece_offsets[2].second) >= 0 && (y + piece_offsets[2].second) <= 22 &&
+					minos[(x + piece_offsets[2].first)][(y + piece_offsets[2].second)] == tetris_block::empty) &&
+				((x + piece_offsets[3].first) >= 0 && (x + piece_offsets[3].first) < 10 && (y + piece_offsets[3].second) >= 0 && (y + piece_offsets[3].second) <= 22 &&
+					minos[(x + piece_offsets[3].first)][(y + piece_offsets[3].second)] == tetris_block::empty);
+
+
+	}
+
 	void place_pieces(int x, int y, std::span<const std::pair<int, int>> piece_offsets, tetris_block block_color) {
 		for (const auto offset : piece_offsets) {
 			minos[x + offset.first][y + offset.second] = block_color;
 		}
 	}
-
 };
 
 constexpr static std::array<std::array<std::array<std::pair<int, int>, 4>, 4>, 7> piece_offsets = {
@@ -204,6 +215,22 @@ constexpr static std::array<std::array<std::array<std::pair<int, int>, 4>, 4>, 7
 };
 constexpr auto asudjhasdas = sizeof(std::array<std::array<std::array<std::array<std::pair<int8_t, int8_t>, 5>, 4>, 4>, 7>);
 
+constexpr int get_col_height(std::span<const tetris_block> col) {
+	int ret = 20;
+	while (ret >= 1 && col[ret - 1] == tetris_block::empty) {
+		--ret;
+	}
+	return ret;
+}
+
+constexpr int get_col_height(std::array<tetris_block,32> col) {
+	int ret = 20;
+	while (ret >= 1 && col[ret - 1] == tetris_block::empty) {
+		--ret;
+	}
+	return ret;
+}
+
 struct rotate_info {
 	bool success = true;
 	bool t_spin = false;
@@ -265,13 +292,19 @@ struct tetris_game {
 	}
 
 	int clear_lines() {
+		std::array<int8_t, 10> heights = {};
+		for (int i = 0; i < heights.size(); ++i) {
+			heights[i] = (int8_t)get_col_height(board.minos[i]);
+		}
 		int number_of_lines_cleared = 0;
 		auto row = [&](int y) {
 			return ranges::views::iota(0, 10) | ranges::views::transform([&,y_=y](int n)->auto& {
 				return board.minos[n][y_];
 			});
 		};
-		for (int y = 0; y < board.minos[0].size(); ++y) {
+		const auto min_height = *std::ranges::min_element(heights);
+
+		for (int y = 0; y < min_height; ++y) {
 			if (std::ranges::all_of(row(y), [](tetris_block a) { return a != tetris_block::empty; })) {
 				++number_of_lines_cleared;
 				for (auto& a : row(y)) {
@@ -280,15 +313,13 @@ struct tetris_game {
 			}
 		}
 		for (auto& column : board.minos) {
-			auto it = std::stable_partition(column.begin(), column.end(), [](tetris_block a) { return a != tetris_block::dead; });
-			for (auto& block : subrange(it, column.end())) {
-				block = tetris_block::empty;
-			}
+			auto thing = std::ranges::remove_if(column, [](tetris_block a) { return a == tetris_block::dead; });
+			std::ranges::fill(thing, tetris_block::empty);
 		}
 		return number_of_lines_cleared;
 	}
 
-	
+
 	bool try_spawn_new_piece() {
 		current_piece = preview_pieces.front();
 		piece_center_x = 4;
@@ -309,6 +340,12 @@ struct tetris_game {
 
 	void generate_new_pieces(std::mt19937& engine) {
 		std::array<tetris_piece, 7> pieces = {tetris_piece::I, tetris_piece::J, tetris_piece::T, tetris_piece::Z, tetris_piece::S, tetris_piece::L, tetris_piece::O};
+		std::ranges::shuffle(pieces, engine);
+		ranges::push_back(preview_pieces, pieces);
+	}
+
+	template<size_t N>
+	void generate_new_pieces(std::mt19937& engine, std::array<tetris_piece, N> pieces) {
 		std::ranges::shuffle(pieces, engine);
 		ranges::push_back(preview_pieces, pieces);
 	}
@@ -450,7 +487,8 @@ struct garbage_calculator {
 	static constexpr std::array<int, 15> combo_table = {
 		0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5
 	};
-	int operator()(int lines_cleared, rotate_info last_rotation) {
+
+	int operator()(int lines_cleared, rotate_info last_rotation,bool is_pc = false) {
 		if (lines_cleared == 0) {
 			//is_b2b = false;
 			current_combo = -1;
@@ -492,6 +530,6 @@ struct garbage_calculator {
 	}
 
 	bool is_b2b = false;
-	int current_combo = -1;
+	int8_t current_combo = -1;
 
 };

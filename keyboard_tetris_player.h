@@ -141,14 +141,14 @@ struct tetris_game_keyboard_player {
 			if (next_game_state.can_move_piece_down()) {
 				m_soft_drop_timing -= std::chrono::microseconds(update.time_since_last_update) * m_settings.soft_drop_multiplier;
 			} else {
-				m_soft_drop_timing -= std::chrono::microseconds(update.time_since_last_update) / 2;
+				m_soft_drop_timing -= std::chrono::microseconds(update.time_since_last_update) / 4;
 				m_max_soft_dropping_time -= update.time_since_last_update;
 			}
 		} else {
 			if (next_game_state.can_move_piece_down()) {
 				m_soft_drop_timing -= std::chrono::microseconds(update.time_since_last_update);
 			} else {
-				m_soft_drop_timing -= std::chrono::microseconds(update.time_since_last_update) / 2;
+				m_soft_drop_timing -= std::chrono::microseconds(update.time_since_last_update) / 4;
 				m_max_soft_dropping_time -= update.time_since_last_update;
 			}
 		}
@@ -185,6 +185,18 @@ struct tetris_game_keyboard_player {
 
 	void stop_doing_stuff() {
 		m_is_doing_stuff = false;
+	}
+
+	void reset() {
+		m_game = tetris_game();
+		while (m_game.preview_pieces.size() <= 6) {
+			m_game.generate_new_pieces(m_random_engine);
+		}
+		m_game.try_spawn_new_piece();
+		m_garbage_calculator = garbage_calculator();
+		m_is_dead = false;
+		m_garbage_sent_since_last_update = 0;
+		m_garbage_recieved = {};
 	}
 
 private:

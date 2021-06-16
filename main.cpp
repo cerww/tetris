@@ -73,7 +73,7 @@ sf::Color mino_to_color(tetris_block mino_color) {
 	return colors[(int)mino_color];
 }
 
-void draw_piece(sf::RenderWindow& window, std::span<const std::pair<int, int>> offsets, int x, int y, sf::Color color, double scale = 1.0) {
+void draw_piece(sf::RenderWindow& window, std::span<const std::pair<int8_t, int8_t>> offsets, int x, int y, sf::Color color, double scale = 1.0) {
 	for (const auto piece : offsets) {
 		sf::RectangleShape block(sf::Vector2f(20, 20) * (float)scale);
 		block.setPosition(x + piece.first * 20.f * (float)scale, y - piece.second * 20.f * (float)scale);
@@ -132,18 +132,15 @@ void draw_tetris_board(sf::RenderWindow& window, const tetris_game_update& stuff
 			0.9
 		);
 	}
-
-
 }
 
 enum struct game_state {
 	open,
-	trasition_to_playing,
+	transition_to_playing,
 	playing,
 	dying,
 	dead,
 	settings,
-
 };
 
 struct starting {
@@ -172,75 +169,164 @@ int main() {
 	window.setFramerateLimit(60);
 	static constexpr int awasdasd = sizeof(track_hold_times<>);
 	auto player = tetris_game_keyboard_player(tetris_game_settings{
-			.das_time = 70ms,
-			.arr_time = 14ms,
-			.delay_between_drops = 20ms,
-			.garbage_delay = 30ms,
+			.das_time = 50ms,
+			.arr_time = 8ms,
+			.delay_between_drops = 10ms,
+			.garbage_delay = 20ms,
 			.max_soft_dropping_time = 5s,
 			.soft_drop_multiplier = 50
 		}
 	);
 
-	
-	auto ai_player = tetris_ai_player(executer.get_executor(),ai_settings{
-		.piece_delay = 500ms
-	});
-	
+
+	auto ai_player = tetris_ai_player(executer.get_executor(), ai_settings{
+										  .piece_delay = 100ms
+									  });
+
 	std::array<bool, (int)action::size> actions = {};
 
 	player.start_doing_stuff_now();
 	ai_player.start_doing_stuff();
 
+	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_player;
+	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_ai;
+
+
+	game_state state = game_state::playing;
+	std::chrono::milliseconds time_till_playing = 2s;
+
 	while (window.isOpen()) {
 		event_handler.poll_stuff();
-		std::array<bool, (int)action::size> actions_this_frame = {};
-		std::ranges::fill(actions_this_frame, false);
+		if (state == game_state::playing) {
+			std::array<bool, (int)action::size> actions_this_frame = {};
+			std::ranges::fill(actions_this_frame, false);
 
-		for (auto [action, key] : settings.keybinds) {
-			if (event_handler.is_held(key)) {
-				actions_this_frame[(int)action] = true;
-			}
-		}
-
-		for (auto [action, key] : settings.joystick_binds) {
-			if (event_handler.is_any_pressed(key)) {
-				actions_this_frame[(int)action] = true;
-			}
-		}
-
-		for (auto [action, axis,amount] : settings.joy_stick_axis) {
-			if (amount < 0) {
-				if (sf::Joystick::getAxisPosition(0, axis) <= amount) {
-					actions_this_frame[(int)action] = true;
-				}
-			} else if (amount > 0) {
-				if (sf::Joystick::getAxisPosition(0, axis) >= amount) {
+			for (auto [action, key] : settings.keybinds) {
+				if (event_handler.is_held(key)) {
 					actions_this_frame[(int)action] = true;
 				}
 			}
-		}
-		std::array<bool, (int)action::size> new_actions_this_frame = {};
 
-		for (auto [a,b,c] : ranges::views::zip(actions, actions_this_frame, new_actions_this_frame)) {
-			c = b && !a;
-		}
+			for (auto [action, key] : settings.joystick_binds) {
+				if (event_handler.is_any_pressed(key)) {
+					actions_this_frame[(int)action] = true;
+				}
+			}
 
-		actions = actions_this_frame;
+			for (auto [action, axis, amount] : settings.joy_stick_axis) {
+				if (amount < 0) {
+					if (sf::Joystick::getAxisPosition(0, axis) <= amount) {
+						actions_this_frame[(int)action] = true;
+					}
+				} else if (amount > 0) {
+					if (sf::Joystick::getAxisPosition(0, axis) >= amount) {
+						actions_this_frame[(int)action] = true;
+					}
+				}
+			}
+			std::array<bool, (int)action::size> new_actions_this_frame = {};
 
-		const auto game_update = player.get_update();
-		const auto ai_game_update = ai_player.get_update();
-		if (game_update.died) {
-			player.stop_doing_stuff();
-		}
-		if (game_update.garbage_sent) {
-			std::cout << game_update.garbage_sent << std::endl;
-		}
-		player.recieve_update({ {actions}, {new_actions_this_frame}, event_handler.time_since_last_poll() }, ai_game_update.garbage_sent);
-		ai_player.receive_update(event_handler.time_since_last_poll(), game_update.garbage_sent);
+			for (auto [a, b, c] : ranges::views::zip(actions, actions_this_frame, new_actions_this_frame)) {
+				c = b && !a;
+			}
 
-		window.clear(sf::Color(100, 100, 100));
-		draw_tetris_board(window, game_update, 200, 600);
-		draw_tetris_board(window, ai_game_update, 600, 600);
+			actions = actions_this_frame;
+
+			const auto game_update = player.get_update();
+			const auto ai_game_update = ai_player.get_update();
+			if (game_update.died || ai_game_update.died) {
+				player.stop_doing_stuff();
+				ai_player.stop_doing_stuff();
+				state = game_state::open;
+			}
+			if (game_update.garbage_sent) {
+				std::cout << game_update.garbage_sent << std::endl;
+				int garbage_left = game_update.garbage_sent;
+				std::ranges::sort(garbage_to_player, std::greater<>(), [](auto& a) { return a.second; });
+				while (!garbage_to_player.empty() && garbage_left) {
+					const int garb_to_cancel = std::min((int)garbage_left, (int)garbage_to_player.back().first);
+					garbage_to_player.back().first -= garb_to_cancel;
+					garbage_left -= garb_to_cancel;
+					if (garbage_to_player.back().first == 0) {
+						garbage_to_player.pop_back();
+					}
+				}
+
+				if (garbage_left) {
+					garbage_to_ai.emplace_back(garbage_left, 1s);
+				}
+			}
+
+			if (ai_game_update.garbage_sent) {
+				int garbage_left = ai_game_update.garbage_sent;
+				std::ranges::sort(garbage_to_ai, std::greater<>(), [](auto& a) { return a.second; });
+				while (!garbage_to_ai.empty() && garbage_left) {
+					const int garb_to_cancel = std::min((int)garbage_left, (int)garbage_to_ai.back().first);
+					garbage_to_ai.back().first -= garb_to_cancel;
+					garbage_left -= garb_to_cancel;
+					if (garbage_to_ai.back().first == 0) {
+						garbage_to_ai.pop_back();
+					}
+				}
+
+				if (garbage_left) {
+					garbage_to_player.emplace_back(garbage_left, 1s);
+				}
+			}
+
+			int garbage_to_ai_this_update = 0;
+			int garbage_to_player_this_update = 0;
+			if (!garbage_to_ai.empty()) {
+				const auto res = std::ranges::partition(garbage_to_ai, [&](auto a) { return a.second > event_handler.time_since_last_poll(); });
+				for (auto& a : std::ranges::subrange(garbage_to_ai.begin(), res.begin())) {
+					a.second -= event_handler.time_since_last_poll();
+				}
+
+				garbage_to_ai_this_update = ranges::accumulate(res | ranges::views::transform([](auto a) {return a.first; }), 0);
+				garbage_to_ai.erase(res.begin(), res.end());
+			}
+
+			if (!garbage_to_player.empty()) {
+				const auto res = std::ranges::partition(garbage_to_player, [&](auto a) { return a.second > event_handler.time_since_last_poll(); });
+				for (auto& a : std::ranges::subrange(garbage_to_player.begin(),res.begin())) {
+					a.second -= event_handler.time_since_last_poll();
+				}
+
+				garbage_to_player_this_update = ranges::accumulate(res | ranges::views::transform([](auto a) {return a.first; }), 0);
+				garbage_to_player.erase(res.begin(), res.end());
+			}
+
+			
+			
+
+			//player.recieve_update({{actions}, {new_actions_this_frame}, event_handler.time_since_last_poll()}, garbage_to_player_this_update*1);
+			ai_player.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 0 * new_actions_this_frame[7]);
+
+			window.clear(sf::Color(100, 100, 100));
+			draw_tetris_board(window, game_update, 200, 600);
+			draw_tetris_board(window, ai_game_update, 800, 600);
+
+			const auto heights = col_heights(game_update.game_state.board.minos);
+			//std::cout << flatstacking_ai::covered_sections(game_update.game_state.board, heights)<<std::endl;
+			
+		} else if (state == game_state::open) {
+			time_till_playing -= event_handler.time_since_last_poll();
+			if (time_till_playing <= 0s) {
+				state = game_state::transition_to_playing;
+				time_till_playing = 2s;
+			}
+			window.clear(sf::Color(100, 100, 100));
+			draw_tetris_board(window, player.get_update(), 200, 600);
+			draw_tetris_board(window, ai_player.get_update(), 800, 600);
+		} else if (state == game_state::transition_to_playing) {
+			player.reset();
+			ai_player.reset();
+			player.start_doing_stuff_now();
+			ai_player.start_doing_stuff();
+			garbage_to_player.clear();
+			garbage_to_ai.clear();
+			state = game_state::playing;
+		}
 		window.display();
 	}
 

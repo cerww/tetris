@@ -97,10 +97,10 @@ struct tetris_board {
 		}
 	}
 
-	bool is_empty()const noexcept {
+	bool is_empty() const noexcept {
 		return minos == decltype(minos){};
 	}
-	
+
 };
 
 constexpr static std::array<std::array<std::array<std::pair<int8_t, int8_t>, 4>, 4>, 7> piece_offsets = {
@@ -229,25 +229,25 @@ constexpr int get_col_height(std::span<const tetris_block> col) {
 	return ret;
 }
 
-inline int get_col_height(const std::array<tetris_block,32>& col) {
+inline int get_col_height(const std::array<tetris_block, 32>& col) {
 	//const alignas(32) std::array<tetris_block, 32> col = col_;
-	
+
 	const auto things = _mm256_load_si256((const __m256i*)&col);
 	const auto zeros = _mm256_setzero_si256();
-	const auto c = _mm256_cmpeq_epi8(things,zeros);
+	const auto c = _mm256_cmpeq_epi8(things, zeros);
 	const unsigned thingy1 = _mm256_movemask_epi8(c);
 	const auto h = std::countl_zero(~thingy1);
 	return 32 - h;
-	
+
 	int ret = 20;
 	while (ret >= 1 && col[ret - 1] == tetris_block::empty) {
 		--ret;
 	}
-	
+
 	return ret;
 }
 
-inline std::array<int8_t,10> col_heights(const std::array<std::array<tetris_block,32>,10>& board) {
+inline std::array<int8_t, 10> col_heights(const std::array<std::array<tetris_block, 32>, 10>& board) {
 	std::array<int8_t, 10> heights = {};
 	for (int i = 0; i < heights.size(); ++i) {
 		heights[i] = (int8_t)get_col_height(board[i]);
@@ -261,12 +261,88 @@ struct rotate_info {
 	bool t_spin_mini = false;
 };
 
+inline int height_start(tetris_piece piece, int orientation, const tetris_board& board, int x) noexcept {
+	if (piece == tetris_piece::I) {
+		if (orientation == 1) {
+			return get_col_height(board.minos[x + 1]) + 2;
+		} else if (orientation == 0) {
+			return std::max(
+				get_col_height(board.minos[x - 1]),
+				std::max(get_col_height(board.minos[x]),
+						 std::max(get_col_height(board.minos[x + 1]), get_col_height(board.minos[x + 2])))
+			);
+		} else if (orientation == 2) {
+			return std::max(
+				get_col_height(board.minos[x - 1]),
+				std::max(get_col_height(board.minos[x]),
+						 std::max(get_col_height(board.minos[x + 1]), get_col_height(board.minos[x - 2])))
+			);
+		} else if (orientation == 3) {
+			return get_col_height(board.minos[x]) + 2;
+		}
+	} else if (piece == tetris_piece::J) {
+		if (orientation == 0) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 1) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 2) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 3) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
+		}
+	} else if (piece == tetris_piece::O) {
+		return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
+	} else if (piece == tetris_piece::Z) {
+		if (orientation == 0) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 1) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 2) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 3) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
+		}
+	} else if (piece == tetris_piece::S) {
+		if (orientation == 0) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 1) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 2) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 3) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
+		}
+	} else if (piece == tetris_piece::T) {
+		if (orientation == 0) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 1) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 2) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 3) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
+		}
+	} else if (piece == tetris_piece::L) {
+		if (orientation == 0) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 1) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 2) {
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+		} else if (orientation == 3) {
+			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
+		}
+	}
+
+	const auto heights = col_heights(board.minos);
+	return *std::ranges::max_element(heights) + 2;
+}
+
 struct tetris_game {
 
 	int hard_drop() {
-		const auto heights = col_heights(board.minos);
-		piece_center_y = std::min(*std::ranges::max_element(heights) + 1 + (current_piece == tetris_piece::I), piece_center_y);
-		
+		piece_center_y = std::min(height_start(current_piece,orientation,board,piece_center_x), piece_center_y);
+
 		auto a = drop_piece_1();
 		while (!a.has_value()) {
 			a = drop_piece_1();
@@ -319,24 +395,47 @@ struct tetris_game {
 	}
 
 	int clear_lines() {
+		
+		auto row = [&](int y) {
+			return ranges::views::iota(0, 10) | ranges::views::transform([&, y_ = y](int n)->auto& {
+				return board.minos[n][y_];
+			});
+		};
+
+		const auto zeros = _mm256_setzero_si256();
+
+		uint32_t compressed_cols = 0xFFFFFFFF;
+		for(int x = 0;x<10;++x) {
+			const auto things = _mm256_load_si256((const __m256i*) & board.minos[x]);
+			const auto c = _mm256_cmpeq_epi8(things, zeros);
+			auto b = ~(unsigned)_mm256_movemask_epi8(c);
+			compressed_cols &= b;
+		}
+		const int number_of_lines_cleared = std::popcount(compressed_cols);
+		if(compressed_cols) {
+			for(int y = 0;y<32 && compressed_cols;(++y,compressed_cols >>=1)) {
+				if(compressed_cols &1) {
+					std::ranges::fill(row(y), tetris_block::dead);
+				}				
+			}
+			for (auto& column : board.minos) {
+				auto thing = std::ranges::remove_if(column, [](tetris_block a) { return a == tetris_block::dead; });
+				std::ranges::fill(thing, tetris_block::empty);
+			}
+		}
+		return number_of_lines_cleared;
+		/*
 		std::array<int8_t, 10> heights = {};
 		for (int i = 0; i < heights.size(); ++i) {
 			heights[i] = (int8_t)get_col_height(board.minos[i]);
 		}
-		int number_of_lines_cleared = 0;
-		auto row = [&](int y) {
-			return ranges::views::iota(0, 10) | ranges::views::transform([&,y_=y](int n)->auto& {
-				return board.minos[n][y_];
-			});
-		};
+		
 		const auto min_height = *std::ranges::min_element(heights);
 
 		for (int y = 0; y < min_height; ++y) {
 			if (std::ranges::all_of(row(y), [](tetris_block a) { return a != tetris_block::empty; })) {
 				++number_of_lines_cleared;
-				for (auto& a : row(y)) {
-					a = tetris_block::dead;
-				}
+				std::ranges::fill(row(y), tetris_block::dead);
 			}
 		}
 		if (number_of_lines_cleared) {
@@ -346,8 +445,8 @@ struct tetris_game {
 			}
 		}
 		return number_of_lines_cleared;
+		*/
 	}
-
 
 	bool try_spawn_new_piece() {
 		current_piece = preview_pieces.front();
@@ -512,13 +611,12 @@ struct tetris_game_settings {
 };
 
 
-
 struct garbage_calculator {
 	static constexpr std::array<int, 15> combo_table = {
 		0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5
 	};
 
-	int operator()(int lines_cleared, rotate_info last_rotation,bool is_pc = false) {
+	int operator()(int lines_cleared, rotate_info last_rotation, bool is_pc = false) {
 		if (lines_cleared == 0) {
 			//is_b2b = false;
 			current_combo = -1;
@@ -552,7 +650,7 @@ struct garbage_calculator {
 				return 8 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + is_pc * 10;
 			} else {
 				is_b2b = true;
-				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 4 + is_pc*10;
+				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 4 + is_pc * 10;
 			}
 		}
 

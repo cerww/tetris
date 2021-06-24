@@ -9,6 +9,7 @@
 #include <boost/asio.hpp>
 #include "ai.h"
 #include "tetris_ai_player.h"
+#include "good_ai.h"
 
 struct game_settings {
 	std::vector<std::pair<action, sf::Keyboard::Key>> keybinds = {

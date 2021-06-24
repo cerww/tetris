@@ -77,7 +77,7 @@ struct tetris_board {
 		});
 	}
 
-	bool can_place_piece_on_board(int x, int y, std::array<std::pair<int8_t, int8_t>, 4> piece_offsets) const noexcept {
+	bool can_place_piece_on_board(int x, int y, const std::array<std::pair<int8_t, int8_t>, 4>& piece_offsets) const noexcept {
 
 		return ((x + piece_offsets[0].first) >= 0 && (x + piece_offsets[0].first) < 10 && (y + piece_offsets[0].second) >= 0 && (y + piece_offsets[0].second) <= 22 &&
 					minos[(x + piece_offsets[0].first)][(y + piece_offsets[0].second)] == tetris_block::empty) &&
@@ -286,14 +286,14 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 2) {
-			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 2;
 		} else if (orientation == 3) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
 		}
 	} else if (piece == tetris_piece::O) {
 		return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
 	} else if (piece == tetris_piece::Z) {
-		if (orientation == 0) {
+		if (orientation == 0 || orientation == 2) {
 			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
@@ -303,7 +303,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
 		}
 	} else if (piece == tetris_piece::S) {
-		if (orientation == 0) {
+		if (orientation == 0 || orientation == 2) {
 			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
@@ -328,7 +328,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 2) {
-			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 2;
 		} else if (orientation == 3) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
 		}
@@ -405,7 +405,7 @@ struct tetris_game {
 		const auto zeros = _mm256_setzero_si256();
 
 		uint32_t compressed_cols = 0xFFFFFFFF;
-		for(int x = 0;x<10;++x) {
+		for (int x = 0; x < 10 && compressed_cols; ++x) {
 			const auto things = _mm256_load_si256((const __m256i*) & board.minos[x]);
 			const auto c = _mm256_cmpeq_epi8(things, zeros);
 			auto b = ~(unsigned)_mm256_movemask_epi8(c);
@@ -661,3 +661,12 @@ struct garbage_calculator {
 	int8_t current_combo = -1;
 
 };
+
+
+
+
+
+
+
+
+

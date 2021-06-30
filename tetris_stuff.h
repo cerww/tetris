@@ -79,14 +79,14 @@ struct tetris_board {
 
 	bool can_place_piece_on_board(int x, int y, const std::array<std::pair<int8_t, int8_t>, 4>& piece_offsets) const noexcept {
 
-		return ((x + piece_offsets[0].first) >= 0 && (x + piece_offsets[0].first) < 10 && (y + piece_offsets[0].second) >= 0 && (y + piece_offsets[0].second) <= 22 &&
-					minos[(x + piece_offsets[0].first)][(y + piece_offsets[0].second)] == tetris_block::empty) &&
-				((x + piece_offsets[1].first) >= 0 && (x + piece_offsets[1].first) < 10 && (y + piece_offsets[1].second) >= 0 && (y + piece_offsets[1].second) <= 22 &&
-					minos[(x + piece_offsets[1].first)][(y + piece_offsets[1].second)] == tetris_block::empty) &&
-				((x + piece_offsets[2].first) >= 0 && (x + piece_offsets[2].first) < 10 && (y + piece_offsets[2].second) >= 0 && (y + piece_offsets[2].second) <= 22 &&
-					minos[(x + piece_offsets[2].first)][(y + piece_offsets[2].second)] == tetris_block::empty) &&
-				((x + piece_offsets[3].first) >= 0 && (x + piece_offsets[3].first) < 10 && (y + piece_offsets[3].second) >= 0 && (y + piece_offsets[3].second) <= 22 &&
-					minos[(x + piece_offsets[3].first)][(y + piece_offsets[3].second)] == tetris_block::empty);
+		return  (((x + piece_offsets[0].first) >= 0) && ((x + piece_offsets[0].first) < 10) && (y + piece_offsets[0].second >= 0) && (y + piece_offsets[0].second <= 22) &&
+					(minos[(x + piece_offsets[0].first)][(y + piece_offsets[0].second)] == tetris_block::empty)) &&
+				(((x + piece_offsets[1].first) >= 0) && ((x + piece_offsets[1].first) < 10) && (y + piece_offsets[1].second >= 0) && (y + piece_offsets[1].second <= 22) &&
+					(minos[(x + piece_offsets[1].first)][(y + piece_offsets[1].second)] == tetris_block::empty)) &&
+				(((x + piece_offsets[2].first) >= 0) && ((x + piece_offsets[2].first) < 10) && (y + piece_offsets[2].second >= 0) && (y + piece_offsets[2].second <= 22) &&
+					(minos[(x + piece_offsets[2].first)][(y + piece_offsets[2].second)] == tetris_block::empty)) &&
+				(((x + piece_offsets[3].first) >= 0) && ((x + piece_offsets[3].first) < 10) && (y + piece_offsets[3].second >= 0) && (y + piece_offsets[3].second <= 22) &&
+					(minos[(x + piece_offsets[3].first)][(y + piece_offsets[3].second)] == tetris_block::empty));
 
 
 	}
@@ -282,7 +282,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 		}
 	} else if (piece == tetris_piece::J) {
 		if (orientation == 0) {
-			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 0;
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 2) {
@@ -314,7 +314,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 		}
 	} else if (piece == tetris_piece::T) {
 		if (orientation == 0) {
-			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 0;
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 2) {
@@ -324,7 +324,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 		}
 	} else if (piece == tetris_piece::L) {
 		if (orientation == 0) {
-			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 0;
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 2) {
@@ -413,7 +413,9 @@ struct tetris_game {
 		}
 		const int number_of_lines_cleared = std::popcount(compressed_cols);
 		if(compressed_cols) {
-			for(int y = 0;y<32 && compressed_cols;(++y,compressed_cols >>=1)) {
+			const auto y_start = std::countr_zero(compressed_cols);
+			compressed_cols >>=y_start;
+			for(int y = y_start;y<32 && compressed_cols;(++y,compressed_cols >>=1)) {
 				if(compressed_cols &1) {
 					std::ranges::fill(row(y), tetris_block::dead);
 				}				

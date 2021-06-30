@@ -28,7 +28,6 @@ constexpr int garbage_height(const tetris_game& game) {
 }
 
 
-
 struct place_next_piece_entry {
 	int orientation = 0;
 	int x = 0;
@@ -213,6 +212,7 @@ inline std::array<sbo_vector<piece_hard_drop_spot, 40>, 7> possible_hard_drop_sp
 			piece_hard_drop_spot(6, 0),
 			piece_hard_drop_spot(7, 0),
 			piece_hard_drop_spot(8, 0),
+			piece_hard_drop_spot(0, 1),
 			piece_hard_drop_spot(1, 1),
 			piece_hard_drop_spot(2, 1),
 			piece_hard_drop_spot(3, 1),
@@ -221,7 +221,6 @@ inline std::array<sbo_vector<piece_hard_drop_spot, 40>, 7> possible_hard_drop_sp
 			piece_hard_drop_spot(6, 1),
 			piece_hard_drop_spot(7, 1),
 			piece_hard_drop_spot(8, 1),
-			piece_hard_drop_spot(0, 1),
 		}
 	},
 };
@@ -259,8 +258,24 @@ double iterate_board(
 		return ret;
 	}
 
-	for (next_move_thing next : get_possible_next(game, prev_garb_state, ply_depth,total_lines_cleared,total_lines_sent)) {
-		if (ply_depth == 1 || (filter2(game, next.game, next.garbage_sent, prev_garb_state, next.garb_state) && filter(next.game, ply_depth))) {
+	for (next_move_thing next : get_possible_next(game, prev_garb_state, ply_depth, total_lines_cleared, total_lines_sent)) {
+		const auto val = iterate_board(
+			ply_depth - 1,
+			std::move(next.game),
+			get_possible_next,
+			evaluate,
+			next.garb_state,
+			total_lines_sent + next.garbage_sent,
+			next.lines_cleared + total_lines_cleared,
+			filter,
+			filter2
+		);
+		ret = std::max(ret, val);
+	}
+	if (game.held_piece != game.current_piece) {
+		game.swap_held_piece();
+		for (next_move_thing next : get_possible_next(game, prev_garb_state, ply_depth, total_lines_cleared, total_lines_sent)) {
+
 			const auto val = iterate_board(
 				ply_depth - 1,
 				std::move(next.game),
@@ -273,26 +288,6 @@ double iterate_board(
 				filter2
 			);
 			ret = std::max(ret, val);
-		}
-	}
-	if (game.held_piece != game.current_piece) {
-		game.swap_held_piece();
-		for (next_move_thing next : get_possible_next(game, prev_garb_state, ply_depth, total_lines_cleared, total_lines_sent)) {
-
-			if (ply_depth == 1 || (filter2(game, next.game, next.garbage_sent, prev_garb_state, next.garb_state) && filter(next.game, ply_depth))) {
-				const auto val = iterate_board(
-					ply_depth - 1,
-					std::move(next.game),
-					get_possible_next,
-					evaluate,
-					next.garb_state,
-					total_lines_sent + next.garbage_sent,
-					next.lines_cleared + total_lines_cleared,
-					filter,
-					filter2
-				);
-				ret = std::max(ret, val);
-			}
 		}
 	}
 	return ret;
@@ -316,7 +311,7 @@ next_move_thing iterate_board1(
 	}
 	std::vector<double> vals;
 	vals.reserve(40);
-	const auto next_ = possible_next(game, prev_garb_state, ply_depth_init,0,0);
+	const auto next_ = possible_next(game, prev_garb_state, ply_depth_init, 0, 0);
 	for (next_move_thing next : next_) {
 		if (filter(next.game, ply_depth_init)) {
 			const auto val = iterate_board(
@@ -339,7 +334,7 @@ next_move_thing iterate_board1(
 	}
 	if (game.held_piece != game.current_piece) {
 		game.swap_held_piece();
-		const auto next_ = possible_next(game, prev_garb_state, ply_depth_init,0,0);
+		const auto next_ = possible_next(game, prev_garb_state, ply_depth_init, 0, 0);
 		for (next_move_thing next : next_) {
 			if (filter(next.game, ply_depth_init)) {
 				const auto val = iterate_board(
@@ -362,7 +357,7 @@ next_move_thing iterate_board1(
 		}
 	}
 
-	std::ranges::sort(vals,std::greater());
+	std::ranges::sort(vals, std::greater());
 
 	std::cout << ret_val << std::endl;
 

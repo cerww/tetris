@@ -79,7 +79,7 @@ struct tetris_board {
 
 	bool can_place_piece_on_board(int x, int y, const std::array<std::pair<int8_t, int8_t>, 4>& piece_offsets) const noexcept {
 
-		return  (((x + piece_offsets[0].first) >= 0) && ((x + piece_offsets[0].first) < 10) && (y + piece_offsets[0].second >= 0) && (y + piece_offsets[0].second <= 22) &&
+		return (((x + piece_offsets[0].first) >= 0) && ((x + piece_offsets[0].first) < 10) && (y + piece_offsets[0].second >= 0) && (y + piece_offsets[0].second <= 22) &&
 					(minos[(x + piece_offsets[0].first)][(y + piece_offsets[0].second)] == tetris_block::empty)) &&
 				(((x + piece_offsets[1].first) >= 0) && ((x + piece_offsets[1].first) < 10) && (y + piece_offsets[1].second >= 0) && (y + piece_offsets[1].second <= 22) &&
 					(minos[(x + piece_offsets[1].first)][(y + piece_offsets[1].second)] == tetris_block::empty)) &&
@@ -219,7 +219,9 @@ constexpr static std::array<std::array<std::array<std::pair<int8_t, int8_t>, 4>,
 		}
 	}
 };
+
 constexpr auto asudjhasdas = sizeof(std::array<std::array<std::array<std::array<std::pair<int8_t, int8_t>, 5>, 4>, 4>, 7>);
+
 
 constexpr int get_col_height(std::span<const tetris_block> col) {
 	int ret = 20;
@@ -341,7 +343,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 struct tetris_game {
 
 	int hard_drop() {
-		piece_center_y = std::min(height_start(current_piece,orientation,board,piece_center_x), piece_center_y);
+		piece_center_y = std::min(height_start(current_piece, orientation, board, piece_center_x), piece_center_y);
 
 		auto a = drop_piece_1();
 		while (!a.has_value()) {
@@ -395,7 +397,7 @@ struct tetris_game {
 	}
 
 	int clear_lines() {
-		
+
 		auto row = [&](int y) {
 			return ranges::views::iota(0, 10) | ranges::views::transform([&, y_ = y](int n)->auto& {
 				return board.minos[n][y_];
@@ -406,19 +408,20 @@ struct tetris_game {
 
 		uint32_t compressed_cols = 0xFFFFFFFF;
 		for (int x = 0; x < 10 && compressed_cols; ++x) {
-			const auto things = _mm256_load_si256((const __m256i*) & board.minos[x]);
+			const auto things = _mm256_load_si256((const __m256i*)&board.minos[x]);
 			const auto c = _mm256_cmpeq_epi8(things, zeros);
-			auto b = ~(unsigned)_mm256_movemask_epi8(c);
+			const auto b = ~(unsigned)_mm256_movemask_epi8(c);
 			compressed_cols &= b;
 		}
 		const int number_of_lines_cleared = std::popcount(compressed_cols);
-		if(compressed_cols) {
+
+		if (compressed_cols) {
 			const auto y_start = std::countr_zero(compressed_cols);
-			compressed_cols >>=y_start;
-			for(int y = y_start;y<32 && compressed_cols;(++y,compressed_cols >>=1)) {
-				if(compressed_cols &1) {
+			compressed_cols >>= y_start;
+			for (int y = y_start; y < 32 && compressed_cols; (++y, compressed_cols >>= 1)) {
+				if (compressed_cols & 1) {
 					std::ranges::fill(row(y), tetris_block::dead);
-				}				
+				}
 			}
 			for (auto& column : board.minos) {
 				auto thing = std::ranges::remove_if(column, [](tetris_block a) { return a == tetris_block::dead; });
@@ -651,8 +654,7 @@ struct garbage_calculator {
 			if (last_rotation.t_spin || last_rotation.t_spin_mini) {
 				return 8 + std::exchange(is_b2b, true) + combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + is_pc * 10;
 			} else {
-				is_b2b = true;
-				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 4 + is_pc * 10;
+				return combo_table[std::min((int)current_combo, (int)combo_table.size() - 1)] + 4 + is_pc * 10 + std::exchange(is_b2b, true);
 			}
 		}
 
@@ -663,12 +665,3 @@ struct garbage_calculator {
 	int8_t current_combo = -1;
 
 };
-
-
-
-
-
-
-
-
-

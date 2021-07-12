@@ -26,7 +26,7 @@ struct tetris_ai_player :ref_counted {
 		})()),
 		m_settings(std::move(settings)) {
 
-		while (m_game.preview_pieces.size() <= 6) {
+		while (m_game.preview_pieces.size() <= 7) {
 			m_game.generate_new_pieces(m_random_engine);
 		}
 		//m_game.try_spawn_new_piece();
@@ -67,7 +67,7 @@ struct tetris_ai_player :ref_counted {
 					m_garbage_recieving.clear();
 					m_game.spawn_garbage(std::span(stuff.data(), std::min(32, (int)stuff.size())));
 				}
-				while (m_game.preview_pieces.size() <= 6) {
+				while (m_game.preview_pieces.size() <= 7) {
 					m_game.generate_new_pieces(m_random_engine);
 				}
 				m_has_next = false;
@@ -117,7 +117,7 @@ struct tetris_ai_player :ref_counted {
 	void reset() {
 		m_garbage_calculator = garbage_calculator();
 		m_game = tetris_game();
-		while (m_game.preview_pieces.size() <= 6) {
+		while (m_game.preview_pieces.size() <= 7) {
 			m_game.generate_new_pieces(m_random_engine);
 		}
 		//m_game.try_spawn_new_piece();
@@ -157,3 +157,11 @@ private:
 	int m_lines_cleared = 0;
 
 };
+
+
+
+
+
+
+
+

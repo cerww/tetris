@@ -156,11 +156,13 @@ struct dead { };
 
 
 int main() {
-	boost::asio::io_context executer;
+	boost::asio::io_context executor;
 	auto y = std::jthread([&]() {
-		auto work_guard = boost::asio::make_work_guard(executer);
-		executer.run();
+		auto work_guard = boost::asio::make_work_guard(executor);
+		executor.run();
 	});
+
+	
 	sf::RenderWindow window(sf::VideoMode(1500, 800), "wat");
 
 	sfml_event_handler<track_hold_times<>> event_handler(window);
@@ -180,8 +182,8 @@ int main() {
 	);
 
 
-	auto ai_player = tetris_ai_player(executer.get_executor(), ai_settings{
-										  .piece_delay = 10ms
+	auto ai_player = tetris_ai_player(executor.get_executor(), ai_settings{
+										  .piece_delay = 80ms
 									  });
 
 	std::array<bool, (int)action::size> actions = {};
@@ -191,7 +193,6 @@ int main() {
 
 	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_player;
 	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_ai;
-
 
 	game_state state = game_state::playing;
 	std::chrono::milliseconds time_till_playing = 2s;
@@ -300,9 +301,9 @@ int main() {
 			
 			
 
-			//player.recieve_update({{actions}, {new_actions_this_frame}, event_handler.time_since_last_poll()}, garbage_to_player_this_update*1);
+			//player.recieve_update({{actions}, {new_actions_this_frame}, event_handler.time_since_last_poll()}, garbage_to_player_this_update);
 			//ai_player2.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 2 * new_actions_this_frame[7]);
-			ai_player.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 3 * new_actions_this_frame[7]);
+			ai_player.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 0 * new_actions_this_frame[7]);
 
 			window.clear(sf::Color(100, 100, 100));
 			draw_tetris_board(window, game_update, 200, 600);

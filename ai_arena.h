@@ -1,5 +1,7 @@
 #pragma once
 #include "good_ai.h"
+#include <fstream>
+#include <boost/asio.hpp>
 
 struct tetris_game_update2 {//for this file only
 	bool dead = false;
@@ -74,9 +76,14 @@ struct local_ai {
 
 };
 
-template<typename T, typename U>
-int bot_fight(const T& ai1, const U& ai2) {
+struct bot_fight_result {
+	int p1_wins = 0;
+	int p2_wins = 0;
+	int draws = 0;
+};
 
+template<typename T, typename U>
+int bot_fight1(const T& ai1, const U& ai2) {
 	thread_local std::mt19937 engine = []() {
 		std::random_device r;
 		std::seed_seq seq{r(), r(), r(), r()};
@@ -86,14 +93,15 @@ int bot_fight(const T& ai1, const U& ai2) {
 	local_ai<const T&> player1(ai1, engine);
 	local_ai<const U&> player2(ai2, engine);
 
-	std::array<int, 3> player1_garbage_queue;
-	std::array<int, 3> player2_garbage_queue;
-
-
+	std::array<int, 3> player1_garbage_queue = {};
+	std::array<int, 3> player2_garbage_queue = {};
 	for (int _ = 0; _ < 500; ++_) {
-		auto [dead1,garbage_sent1] = player1.get_update();
-		auto [dead2,garbage_sent2] = player2.get_update();
+		auto [dead1, garbage_sent1] = player1.get_update();
+		auto [dead2, garbage_sent2] = player2.get_update();
 
+		if (dead1 && dead2) {
+			return 2;
+		}
 		if (dead1) {
 			return 1;
 		}
@@ -113,7 +121,6 @@ int bot_fight(const T& ai1, const U& ai2) {
 			garb_in_queue -= amount_to_sub;
 			garbage_sent2 -= amount_to_sub;
 		}
-
 		//garbage cancel both thingys sent this update
 
 		const auto amount_to_cancel_from_both = std::min(garbage_sent1, garbage_sent2);
@@ -131,29 +138,39 @@ int bot_fight(const T& ai1, const U& ai2) {
 		player1.receive_update(garb_to_send_to_player1);
 		player2.receive_update(garb_to_send_to_player2);
 	}
-
-	auto [dead1, garbage_sent1] = player1.get_update();
-	auto [dead2, garbage_sent2] = player2.get_update();
-
-	if (dead1) {
-		return 1;
-	}
-	if (dead2) {
-		return 0;
-	}
-
 	return 2;
+}
+
+//0 => player 0 wins, 1 => player 1 wins, 2 => draw
+template<typename T, typename U>
+bot_fight_result bot_fight(const T& ai1, const U& ai2) {
+
+
+	bot_fight_result ret = {};
+
+	for (int i = 0; i < 10; ++i) {
+		const auto r = bot_fight1(ai1, ai2);
+		if (r == 0) {
+			++ret.p1_wins;
+		} else if (r == 1) {
+			++ret.p2_wins;
+		} else {
+			++ret.draws;
+		}
+	}
+
+	return ret;
 }
 
 flatstacking_ai make_ai(std::mt19937& engine) {
 	const std::uniform_int_distribution<int> dist0to50(0, 50);
 	const std::uniform_int_distribution<int> dist0to25(0, 25);
 	const std::uniform_int_distribution<int> dist0to10(0, 10);
-	
+
 	const std::uniform_int_distribution<int> distM50to50(-50, 50);
 	const std::uniform_int_distribution<int> distM25to25(-25, 25);
 	const std::uniform_int_distribution<int> distM10to10(-10, 10);
-	
+
 	const std::uniform_int_distribution<int> distM100to0(-100, 0);
 	const std::uniform_int_distribution<int> distM50to0(-50, 0);
 	const std::uniform_int_distribution<int> distM25to0(-25, 0);
@@ -181,7 +198,8 @@ flatstacking_ai make_ai(std::mt19937& engine) {
 			distM25to25(engine),
 			distM25to25(engine),
 			distM25to0(engine),
-			distM25to25(engine)},
+			distM25to25(engine)
+		},
 		.wasted_line_clear = distM25to0(engine),
 		.wasted_line_clear_squared = distM10to0(engine),
 		.well_dep = dist0to10(engine),
@@ -195,4 +213,75 @@ flatstacking_ai make_ai(std::mt19937& engine) {
 		.covered_squared = distM10to0(engine),
 		.clear_efficency = dist0to10(engine),
 	};
+}
+
+
+void do_ai_thingy(std::optional<std::string_view> file_name) {
+
+	struct ai_wins_stat {
+		std::atomic<int> wins;
+		std::atomic<int> losses;
+		std::atomic<int> draws;
+		//games played = wins + losses + draws
+	};
+
+	std::random_device r;
+	const auto seq = std::seed_seq{r(), r(), r(), r(), r()};
+	std::mt19937 engine(seq);
+
+	std::vector<flatstacking_ai> ais;
+
+	if (file_name.has_value()) {
+		std::ifstream f(std::string(file_name.value()), std::ios::in);
+		std::string file_contents;
+		f.seekg(std::ios::end);
+		file_contents.resize(f.tellg());
+		f.seekg(std::ios::beg);
+		f.read(file_contents.data(), file_contents.size());
+
+		ais = nlohmann::json::parse(file_contents).get<std::vector<flatstacking_ai>>();
+	} else {
+		for (int i = 0; i < 200; ++i) {
+			ais.push_back(make_ai(engine));
+		}
+	}
+	constexpr int threads_count = 20;
+
+	while (true) {
+		{
+			boost::asio::io_context executor(threads_count);
+
+			std::vector<std::jthread> threads;
+
+			std::unique_ptr<ai_wins_stat[]> ai_win_stats = std::make_unique<ai_wins_stat[]>(ais.size());
+
+			for (int i = 0; i < 2000; ++i) {
+				const auto idx1 = engine() % ais.size();
+				const auto idx2 = engine() % ais.size();
+				if (idx1 == idx2) {
+					--i;
+					continue;
+				}
+				boost::asio::post(executor, [&, i1 = idx1, i2 = idx2]() {
+					const auto result = bot_fight(ais[i1], ais[i2]);
+					ai_win_stats[i1].wins += result.p1_wins;
+					ai_win_stats[i1].losses += result.p2_wins;
+					ai_win_stats[i2].wins += result.p2_wins;
+					ai_win_stats[i2].losses += result.p1_wins;
+					ai_win_stats[i1].draws += result.draws;
+					ai_win_stats[i2].draws += result.draws;
+				});
+			}
+
+
+			for (int i = 0; i < threads_count - 1; ++i) {
+				threads.emplace_back([i = i, &executor]() {
+					executor.run();
+				});
+			}
+
+			executor.run();
+		}
+		
+	}
 }

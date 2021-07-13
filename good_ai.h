@@ -127,7 +127,7 @@ struct flatstacking_ai {
 		seen_boards.reserve(15000);
 
 		auto res = iterate_board1(
-			6, game,
+			5, game,
 			[&](const tetris_game& game, garbage_calculator calc, int depth, int total_lines_cleared, int total_lines_sent) {//next
 
 				if constexpr (print_stuff) {
@@ -424,9 +424,9 @@ struct flatstacking_ai {
 			}
 		} else if (next_piece == tetris_piece::S) {
 			const std::array<int8_t, 9> height_diffs = [&]() {
-				std::array<int8_t, 10> h;
+				std::array<int8_t, 10> h = {};
 				ranges::adjacent_difference(heights, h);
-				std::array<int8_t, 9> r;
+				std::array<int8_t, 9> r = {};
 				ranges::copy(h | ranges::views::tail, r.begin());
 				return r;
 			}();
@@ -712,7 +712,7 @@ struct flatstacking_ai {
 		}
 
 		//ret += std::sqrt(std::abs(max_height - 5)) * this->height_dist_from_optimal;
-
+		ret += well_idx[lowest_height_idx];
 		return ret;
 	}
 

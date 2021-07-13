@@ -272,7 +272,7 @@ double iterate_board(
 		);
 		ret = std::max(ret, val);
 		if(next.garbage_sent>=10) {
-			return ret;
+			return val;
 		}
 	}
 	if (game.held_piece != game.current_piece) {
@@ -292,7 +292,7 @@ double iterate_board(
 			);
 			ret = std::max(ret, val);
 			if (next.garbage_sent >= 10) {
-				return ret;
+				return val;
 			}
 		}
 	}
@@ -331,14 +331,14 @@ next_move_thing iterate_board1(
 				filter,
 				filter2
 			);
+			
 			vals.push_back(val);
-			const auto prev_garb_sent = next.garbage_sent;
+			if (next.garbage_sent >= 10) {
+				return next;
+			}
 			if (val > ret_val) {
 				ret_val = val;
 				ret_move = std::move(next);
-			}
-			if (prev_garb_sent >= 10) {
-				return ret_move;
 			}
 		}
 	}
@@ -358,11 +358,16 @@ next_move_thing iterate_board1(
 					filter,
 					filter2
 				);
+				
+				if (next.garbage_sent>= 10) {
+					return next;
+				}
 				vals.push_back(val);				
 				if (val > ret_val) {
 					ret_val = val;
 					ret_move = std::move(next);
 				}
+				
 			}
 		}
 	}

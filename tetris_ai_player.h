@@ -76,16 +76,18 @@ struct tetris_ai_player :ref_counted {
 				}
 				if (!m_ai_is_running) {
 					m_ai_is_running = true;
-					boost::asio::post(m_executor, [this]() {
+					boost::asio::post(m_executor, [this, ai_should_stop = m_ai_should_stop, gm = m_game_number_thingy.load()]() {
 						auto thing = m_ai(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
 						std::cout << "watland" << std::endl;
-						if (!m_ai_should_stop) {
+						if (!ai_should_stop->load() && gm == m_game_number_thingy) {
 							m_game_next = std::move(thing.game);
 							m_garbage_calculator_next = thing.garb_state;
 							m_garbage_sent_since_last_update_next += thing.garbage_sent;
 							m_dead_next = thing.dead;
 							m_ai_is_running = false;
 							m_has_next = true;
+							m_lines_cleared = thing.lines_cleared;
+							m_game_number_next = gm;
 						}
 					});
 				}
@@ -95,10 +97,10 @@ struct tetris_ai_player :ref_counted {
 
 	void start_doing_stuff() {
 		m_ai_is_running = true;
-		boost::asio::post(m_executor, [this]() {
+		boost::asio::post(m_executor, [this, ai_should_stop = m_ai_should_stop, gm = m_game_number_thingy.load()]() {
 			auto thing = m_ai(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
 			std::cout << "watland" << std::endl;
-			if (!m_ai_should_stop) {
+			if (!*ai_should_stop && gm == m_game_number_thingy) {
 				m_game_next = std::move(thing.game);
 				m_garbage_calculator_next = thing.garb_state;
 				m_garbage_sent_since_last_update_next += thing.garbage_sent;
@@ -106,15 +108,20 @@ struct tetris_ai_player :ref_counted {
 				m_ai_is_running = false;
 				m_has_next = true;
 				m_lines_cleared = thing.lines_cleared;
+				m_game_number_next = gm;
 			}
 		});
 	}
 
+	// ReSharper disable once CppMemberFunctionMayBeConst
 	void stop_doing_stuff() {
-		m_ai_should_stop = true;
+		*m_ai_should_stop = true;
+		m_ai_should_stop = nullptr;
+		++m_game_number_thingy;
 	}
 
 	void reset() {
+		m_has_next = false;
 		m_garbage_calculator = garbage_calculator();
 		m_game = tetris_game();
 		while (m_game.preview_pieces.size() <= 7) {
@@ -125,7 +132,7 @@ struct tetris_ai_player :ref_counted {
 		m_dead = false;
 		m_garbage_sent_since_last_update = 0;
 		m_garbage_recieving = {};
-		m_ai_should_stop = false;
+		m_ai_should_stop = std::make_shared<std::atomic<bool>>(false);
 	}
 
 private:
@@ -146,8 +153,9 @@ private:
 	std::chrono::milliseconds m_time_till_next_piece = m_settings.piece_delay;
 	std::atomic<bool> m_ai_is_running = false;
 
-	std::atomic<bool> m_ai_should_stop = false;
+	std::shared_ptr<std::atomic<bool>> m_ai_should_stop = std::make_shared<std::atomic<bool>>(false);
 
+	std::atomic<int> m_game_number_thingy = 0;
 
 	std::atomic<bool> m_has_next = false;
 	tetris_game m_game_next;
@@ -155,7 +163,7 @@ private:
 	garbage_calculator m_garbage_calculator_next;
 	bool m_dead_next = false;
 	int m_lines_cleared = 0;
-
+	int m_game_number_next = 0;
 };
 
 

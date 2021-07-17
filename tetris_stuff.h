@@ -552,13 +552,14 @@ struct tetris_game {
 
 	tetris_board board = {};
 	sbo_vector<tetris_piece, 16> preview_pieces;
+	//std::vector<tetris_piece> preview_pieces;
+	
 	tetris_piece current_piece;
 	int orientation = 0;
 
 	int piece_center_x = 0;
 	int piece_center_y = 0;
 	std::optional<tetris_piece> held_piece;
-
 
 private:
 	bool is_tspin() const noexcept {

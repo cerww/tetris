@@ -116,7 +116,7 @@ struct tetris_ai_player :ref_counted {
 	// ReSharper disable once CppMemberFunctionMayBeConst
 	void stop_doing_stuff() {
 		*m_ai_should_stop = true;
-		m_ai_should_stop = nullptr;
+		m_ai_should_stop = std::make_shared<std::atomic<bool>>(false);
 		++m_game_number_thingy;
 	}
 

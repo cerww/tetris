@@ -97,7 +97,7 @@ inline std::array<int8_t, 8> disallowed_extra_thingys(tetris_piece piece, int or
 }
 
 struct flatstacking_ai {
-	static constexpr bool print_stuff = true;
+	static constexpr bool print_stuff = false;
 
 	next_move_thing operator()(const tetris_game& game, garbage_calculator garbage_state, int garbage_receiving/*ignore this var for this fn*/) const {
 		static uint64_t number_of_things_filtered_1 = 0;

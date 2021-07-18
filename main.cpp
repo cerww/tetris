@@ -157,7 +157,7 @@ struct dead { };
 
 
 int main() {
-	bool do_ai_thing = true;
+	bool do_ai_thing = false;
 	if (do_ai_thing) {
 		do_ai_thingy();
 
@@ -193,7 +193,7 @@ int main() {
 	auto ai_player = tetris_ai_player(
 		executor.get_executor(),
 		ai_settings{
-			.piece_delay = 800ms
+			.piece_delay = 1ms
 		}
 	);
 
@@ -314,7 +314,7 @@ int main() {
 				}
 
 
-				player.recieve_update({ {actions}, {new_actions_this_frame}, event_handler.time_since_last_poll() }, garbage_to_player_this_update);
+				//player.recieve_update({ {actions}, {new_actions_this_frame}, event_handler.time_since_last_poll() }, garbage_to_player_this_update);
 				//ai_player2.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 2 * new_actions_this_frame[7]);
 				ai_player.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 0 * new_actions_this_frame[7]);
 

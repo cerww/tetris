@@ -96,8 +96,8 @@ int bot_fight1(const T& ai1, const U& ai2) {
 	local_ai<const T&> player1(ai1, engine);
 	local_ai<const U&> player2(ai2, engine);
 
-	std::array<int, 3> player1_garbage_queue = {};
-	std::array<int, 3> player2_garbage_queue = {};
+	std::array<int, 2> player1_garbage_queue = {};
+	std::array<int, 2> player2_garbage_queue = {};
 	for (int _ = 0; _ < 300; ++_) {
 		auto [dead1, garbage_sent1] = player1.get_update();
 		auto [dead2, garbage_sent2] = player2.get_update();
@@ -149,7 +149,7 @@ template<typename T, typename U>
 bot_fight_result bot_fight(const T& ai1, const U& ai2) {
 	bot_fight_result ret = {};
 
-	for (int i = 0; i < 10; ++i) {
+	for (int i = 0; i < 5; ++i) {
 		const auto r = bot_fight1(ai1, ai2);
 		if (r == 0) {
 			++ret.p1_wins;
@@ -307,12 +307,12 @@ void do_ai_thingy(std::optional<std::string_view> file_name = std::nullopt) {
 
 		ais = nlohmann::json::parse(file_contents).get<std::vector<flatstacking_ai>>();
 	} else {
-		for (int i = 0; i < 200 - 1; ++i) {
+		for (int i = 0; i < 100 - 1; ++i) {
 			ais.push_back(make_ai(engine));
 		}
 		ais.emplace_back();
 	}
-	constexpr int threads_count = 9;
+	constexpr int threads_count = 12;
 
 	while (true) {
 
@@ -333,7 +333,7 @@ void do_ai_thingy(std::optional<std::string_view> file_name = std::nullopt) {
 
 			std::vector<std::jthread> threads;
 
-			for (int i = 0; i < 1000; ++i) {
+			for (int i = 0; i < 700; ++i) {
 				const auto idx1 = engine() % ais.size();
 				const auto idx2 = engine() % ais.size();
 				if (idx1 == idx2) {
@@ -375,7 +375,7 @@ void do_ai_thingy(std::optional<std::string_view> file_name = std::nullopt) {
 		auto ai_wins = ai_wins_temp | ranges::views::transform([](const auto& a) {return ai_wins_stat_no_atomic(a); }) | ranges::to<std::vector>();
 
 		for (auto&& [idx,stats] : ranges::views::enumerate(ai_wins)) {
-			fmt::print("{:4<}: {}", idx, (stats.wins + 0.5 * stats.draws) / (stats.losses + stats.wins + stats.draws));
+			fmt::print("{:4<}: {}\n", idx, (stats.wins + 0.5 * stats.draws) / (stats.losses + stats.wins + stats.draws));
 		}
 
 		const auto ais_and_wins = ranges::views::zip(ais, ai_wins);

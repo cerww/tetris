@@ -97,7 +97,7 @@ inline std::array<int8_t, 8> disallowed_extra_thingys(tetris_piece piece, int or
 }
 
 struct flatstacking_ai {
-	static constexpr bool print_stuff = false;
+	static constexpr bool print_stuff = true;
 
 	next_move_thing operator()(const tetris_game& game, garbage_calculator garbage_state, int garbage_receiving/*ignore this var for this fn*/) const {
 		static uint64_t number_of_things_filtered_1 = 0;
@@ -155,7 +155,6 @@ struct flatstacking_ai {
 				const auto max_height = *max_h_it;
 				std::array<int8_t, 10> height_order = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 				std::ranges::sort(height_order, std::less(), [&](int8_t a) { return prev_heights[a]; });
-
 
 				const auto covered_sections_count = covered_sections(game.board);
 				const auto covered_slots = covered_slots_raw(game.board);
@@ -400,7 +399,8 @@ struct flatstacking_ai {
 				}
 			}
 			for (int i = 0; i < 8; ++i) {
-				if (heights[i] == heights[i + 1]) {
+				if (heights[i] <= heights[i + 1] ||
+					heights[i] >= heights[i + 1] + 5) {
 					ret.emplace_back(i + 1, 3);
 				}
 			}
@@ -415,7 +415,8 @@ struct flatstacking_ai {
 				}
 			}
 			for (int i = 0; i < 8; ++i) {
-				if (heights[i] == heights[i + 1]) {
+				if (heights[i] >= heights[i + 1] ||
+					heights[i] + 5 <= heights[i + 1]) {
 					ret.emplace_back(i, 1);
 				}
 			}
@@ -454,7 +455,6 @@ struct flatstacking_ai {
 						ret.push_back(piece_hard_drop_spot(i, 1));
 					}
 				}
-
 			}
 
 			for (const auto& anti_pattern : bad_Z_spots) {
@@ -466,7 +466,7 @@ struct flatstacking_ai {
 			if (has_consecutive_equal) {
 				for (int i = 0; i < 9; ++i) {
 					const auto height_diff = std::abs(heights[i] - heights[i + 1]);
-					if (height_diff >= 3) {
+					if (height_diff >= 2) {
 						ret.emplace_back(i, 0);
 					}
 				}
@@ -647,14 +647,13 @@ struct flatstacking_ai {
 		const auto height_std = std::sqrt(height_varience);
 		const double line_efficency = (double)total_lines_cleared / (double)garbage_sent;
 
-		double ret = total_garbage_sent * total_garbage_sent * (this->garbage_sent)
+		double ret = total_garbage_sent * total_garbage_sent * (this->garbage_sent_squared)
 				+ std::abs(bumpines) * (bumpiness_)
 				+ bumpiness_squared * (this->bumpiness_squared - !do_tspins * 2)
 				+ std::abs(covered) * (this->covered)
 				+ covered_squared * (this->covered_squared - !do_tspins * 1)
-				+ total_garbage_sent * (this->garbage_sent_squared)
-				+ line_efficency * (this->clear_efficency)
-		;
+				+ total_garbage_sent * (this->garbage_sent)
+				+ line_efficency * (this->clear_efficency);
 
 		if (full_eval) {
 			if (total_lines_cleared && total_garbage_sent == 0) {
@@ -829,7 +828,7 @@ struct flatstacking_ai {
 				- bumpiness_squared * (2 + 1 + !do_tspins * 2)
 				- std::abs(covered) * (8 - 2.5)
 				- covered_squared * (3 + 1 + !do_tspins * 1)
-				+ total_garbage_sent * (7 - 2.5);
+				+ total_garbage_sent * (7 - 3.5);
 
 		if (total_lines_cleared && total_garbage_sent == 0) {
 			ret -= 6;
@@ -864,7 +863,7 @@ struct flatstacking_ai {
 			ret += depth_diff;
 		}
 
-		ret += garb_state.is_b2b * 8;
+		ret += garb_state.is_b2b * 12;
 
 		const auto well_dep = std::min(lowest_height - second_deep, 6);
 
@@ -923,7 +922,7 @@ struct flatstacking_ai {
 		ai.inefficient_line_clear = json["inefficient_line_clear"].get<int>();
 		ai.top_quarter = json["top_quarter"].get<int>();
 		ai.top_half = json["top_half"].get<int>();
-		ai.well_idx = json["well_idx"].get<std::array<int,10>>();
+		ai.well_idx = json["well_idx"].get<std::array<int, 10>>();
 		ai.wasted_line_clear = json["wasted_line_clear"].get<int>();
 		ai.well_dep = json["well_dep"].get<int>();
 		ai.is_b2b = json["is_b2b"].get<int>();

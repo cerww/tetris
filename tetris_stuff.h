@@ -330,7 +330,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 		} else if (orientation == 1) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 2) {
-			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 2;
+			return std::max(std::max(get_col_height(board.minos[x - 1]), get_col_height(board.minos[x])), get_col_height(board.minos[x + 1])) + 1;
 		} else if (orientation == 3) {
 			return std::max(get_col_height(board.minos[x]), get_col_height(board.minos[x - 1])) + 1;
 		}

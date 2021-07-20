@@ -124,10 +124,10 @@ struct flatstacking_ai {
 		static int potatoland = 0;
 
 		ska::bytell_hash_set<compressed_board> seen_boards;
-		seen_boards.reserve(15000);
+		seen_boards.reserve(50000);
 
 		auto res = iterate_board1(
-			5, game,
+			6, game,
 			[&](const tetris_game& game, garbage_calculator calc, int depth, int total_lines_cleared, int total_lines_sent) {//next
 
 				if constexpr (print_stuff) {
@@ -233,7 +233,7 @@ struct flatstacking_ai {
 					const auto covered_sections2 = covered_sections(thing.game.board);
 					const auto extra_sections = covered_sections2 - covered_sections_count;
 					if (covered_sections2 - covered_sections_count > max_allowed_extra_covered_sections(just_placed_piece, a.orientation) ||
-						(covered_sections2 - covered_sections_count0 > std::clamp(4 - depth, 1, 3))
+						(covered_sections2 - covered_sections_count0 > std::clamp(4 - depth, 1, 2))
 					) {
 						if constexpr (print_stuff) {
 							++number_of_things_filtered_2;
@@ -246,7 +246,7 @@ struct flatstacking_ai {
 
 					if (extra_sections > 0) {
 						const auto disallowed_extra_thingys_ = disallowed_extra_thingys(just_placed_piece, a.orientation, extra_sections, has_at_least_1_tspin);
-						if (extra_covered_slots >= 8 || ranges::contains(disallowed_extra_thingys_, extra_covered_slots) || covered_slots2 - covered_slots0 >= 10) {
+						if (extra_covered_slots >= 7 || ranges::contains(disallowed_extra_thingys_, extra_covered_slots) || covered_slots2 - covered_slots0 >= 9) {
 							if constexpr (print_stuff) {
 								++number_of_things_filtered_3;
 								++number_of_things_filtered_3_this_iter;
@@ -274,13 +274,26 @@ struct flatstacking_ai {
 								++number_of_things_filtered_4_this_iter;
 							}
 							continue;
-						} else { }
+						} else {
+							if(depth == 2 && (thing.lines_cleared + total_lines_cleared == 2 &&
+								total_lines_sent + thing.garbage_sent == 1)) {
+								
+								if constexpr (print_stuff) {
+									++number_of_things_filtered_4_this_iter;
+								}
+								continue;
+							}
+						}
 					} else if (depth == 1) {
 						//int max_height;
 						//const auto heights = col_heights(thing.game.board.minos);
 						if (!false &&
-							thing.lines_cleared + total_lines_cleared != 0 &&
-							total_lines_sent + thing.garbage_sent == 0) {
+							(thing.lines_cleared + total_lines_cleared != 0 &&
+							total_lines_sent + thing.garbage_sent == 0) ||
+							(thing.lines_cleared + total_lines_cleared == 2 &&
+								total_lines_sent + thing.garbage_sent == 1)
+							) {
+							
 							if constexpr (print_stuff) {
 								++number_of_things_filtered_4_this_iter;
 							}
@@ -295,8 +308,8 @@ struct flatstacking_ai {
 						return ret;
 					}
 					const int sizeland = std::max((int)(ret.size() * branch_factor_multiplier[depth]), 1);
-					std::vector<double> evals = ret | ranges::views::transform([this](const next_move_thing& wat) {
-						return evaluate_board(wat.game, wat.garbage_sent, wat.lines_cleared, wat.garb_state, false);
+					std::vector<double> evals = ret | ranges::views::transform([&](const next_move_thing& wat) {
+						return evaluate_board1(wat.game, wat.garbage_sent, wat.lines_cleared, wat.garb_state);
 					}) | ranges::to<std::vector>();
 
 					auto zipped = ranges::views::zip(ret, evals);
@@ -433,7 +446,8 @@ struct flatstacking_ai {
 			}();
 			if (std::ranges::any_of(height_diffs, [](auto a) { return a == 1 || a == -1; })) {
 				for (int i = 0; i < 7; ++i) {
-					if (heights[i + 2] >= heights[i + 1] && heights[i] <= heights[i + 2]) {
+					if (heights[i + 2] == heights[i + 1] && heights[i] == heights[i + 2]) {
+						//wat
 						ret.emplace_back(i + 2, 1);
 					}
 				}
@@ -451,7 +465,7 @@ struct flatstacking_ai {
 			}();
 			if (std::ranges::any_of(height_diffs, [](auto a) { return a == 1 || a == -1; })) {
 				for (int i = 0; i < 7; ++i) {
-					if (heights[i] >= heights[i + 1] && heights[i] >= heights[i + 2]) {
+					if (heights[i] == heights[i + 1] && heights[i] == heights[i + 2]) {
 						ret.push_back(piece_hard_drop_spot(i, 1));
 					}
 				}
@@ -768,29 +782,31 @@ struct flatstacking_ai {
 
 
 	bool do_tspins = true;
+	/*
 	std::vector<double> branch_factor_multiplier = {
 		0.7,//
 		0.7,//
-		0.58,
-		0.6,
-		0.68,
+		0.54,
+		0.55,
+		0.65,
 		0.7,
 		0.7
 	};
-	/*
+	*/
+	//*
 
 	std::vector<double> branch_factor_multiplier = {
 		0.7,//
 		0.7,//
-		0.48,
 		0.52,
-		0.56,
+		0.55,
+		0.59,
 		0.64,
 		0.7,
 		0.7
 	};
 
-	*/
+	//*/
 
 	double evaluate_board1(const tetris_game& game, int total_garbage_sent, int total_lines_cleared, garbage_calculator garb_state) const {
 		const auto rows = ranges::views::iota(0, (int)game.board.minos[0].size()) | ranges::views::transform([&](int y) {
@@ -823,12 +839,12 @@ struct flatstacking_ai {
 
 		const double line_efficency = (double)total_lines_cleared / (double)garbage_sent;
 
-		double ret = total_garbage_sent * total_garbage_sent * (5 - 2.5)
+		double ret = total_garbage_sent * total_garbage_sent * (2.5)
 				- std::abs(bumpines)
 				- bumpiness_squared * (2 + 1 + !do_tspins * 2)
-				- std::abs(covered) * (8 - 2.5)
-				- covered_squared * (3 + 1 + !do_tspins * 1)
-				+ total_garbage_sent * (7 - 3.5);
+				- std::abs(covered) * (5.5)
+				- covered_squared * (4 + !do_tspins * 1)
+				+ total_garbage_sent * (3.5);
 
 		if (total_lines_cleared && total_garbage_sent == 0) {
 			ret -= 6;

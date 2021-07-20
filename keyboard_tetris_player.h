@@ -17,7 +17,6 @@ struct tetris_game_keyboard_player {
 	}
 
 	tetris_game_update get_update() {
-		std::lock_guard lock(m_mut);
 		return {
 			m_game,
 			std::exchange(m_garbage_sent_since_last_update, 0),
@@ -41,7 +40,6 @@ struct tetris_game_keyboard_player {
 				m_delay_between_pieces = std::nullopt;
 
 				{
-					std::lock_guard lock(m_mut);
 					m_game = next_game_state;
 					m_is_dead = !still_alive;
 				}
@@ -173,7 +171,6 @@ struct tetris_game_keyboard_player {
 		}
 
 		{
-			std::lock_guard lock(m_mut);
 			m_game = next_game_state;
 			m_garbage_sent_since_last_update += garbage_sent_this_update;
 		}
@@ -197,6 +194,10 @@ struct tetris_game_keyboard_player {
 		m_is_dead = false;
 		m_garbage_sent_since_last_update = 0;
 		m_garbage_recieved = {};
+	}
+
+	const tetris_game_settings& settings()const noexcept {
+		return m_settings;
 	}
 
 private:
@@ -263,5 +264,4 @@ private:
 	std::chrono::milliseconds m_max_soft_dropping_time = m_settings.max_soft_dropping_time;
 
 
-	std::mutex m_mut;
 };

@@ -76,8 +76,8 @@ struct tetris_ai_player :ref_counted {
 				}
 				if (!m_ai_is_running) {
 					m_ai_is_running = true;
-					boost::asio::post(m_executor, [this, ai_should_stop = m_ai_should_stop, gm = m_game_number_thingy.load()]() {
-						auto thing = m_ai(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
+					boost::asio::post(m_executor, [this, ai_should_stop = m_ai_should_stop, gm = m_game_number_thingy.load(),ai = m_ai]() {
+						auto thing = (*ai)(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
 						std::cout << "watland" << std::endl;
 						if (!ai_should_stop->load() && gm == m_game_number_thingy) {
 							m_game_next = std::move(thing.game);
@@ -97,8 +97,8 @@ struct tetris_ai_player :ref_counted {
 
 	void start_doing_stuff() {
 		m_ai_is_running = true;
-		boost::asio::post(m_executor, [this, ai_should_stop = m_ai_should_stop, gm = m_game_number_thingy.load()]() {
-			auto thing = m_ai(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
+		boost::asio::post(m_executor, [this, ai_should_stop = m_ai_should_stop, gm = m_game_number_thingy.load(),ai = m_ai]() {
+			auto thing = (*ai)(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
 			std::cout << "watland" << std::endl;
 			if (!*ai_should_stop && gm == m_game_number_thingy) {
 				m_game_next = std::move(thing.game);
@@ -134,6 +134,19 @@ struct tetris_ai_player :ref_counted {
 		m_garbage_recieving = {};
 		m_ai_should_stop = std::make_shared<std::atomic<bool>>(false);
 	}
+	
+	const ai_settings& settings()const noexcept {
+		return m_settings;
+	}
+
+	const auto& get_executor()const noexcept {
+		return m_executor;
+	}
+
+	auto& get_executor()noexcept {
+		return m_executor;
+	}
+	
 
 private:
 
@@ -149,7 +162,7 @@ private:
 	bool m_dead = false;
 	sbo_vector<int8_t, 20> m_garbage_recieving = {};
 
-	flatstacking_ai m_ai;
+	std::shared_ptr<flatstacking_ai> m_ai = std::make_shared<flatstacking_ai>();
 	std::chrono::milliseconds m_time_till_next_piece = m_settings.piece_delay;
 	std::atomic<bool> m_ai_is_running = false;
 

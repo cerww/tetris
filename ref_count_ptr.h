@@ -19,6 +19,8 @@ struct ref_counted {
 	}
 
 	~ref_counted() = default;
+
+	
 private:
 	void increment_ref_count() const noexcept {
 		m_ref_count.fetch_add(1, std::memory_order_relaxed);
@@ -121,7 +123,7 @@ struct ref_count_ptr {
 
 	~ref_count_ptr() noexcept {
 		if (m_self && m_self->decrement_ref_count()) {
-			delete m_self;
+			//delete m_self;
 		}
 	}
 

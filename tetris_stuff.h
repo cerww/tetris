@@ -91,6 +91,20 @@ struct tetris_board {
 
 	}
 
+	bool can_place_piece_on_board_fast(int x, int y, const std::array<std::pair<int8_t, int8_t>, 4>& piece_offsets) const noexcept {
+
+		return ((y + piece_offsets[0].second >= 0) &&
+			(minos[(x + piece_offsets[0].first)][(y + piece_offsets[0].second)] == tetris_block::empty)) &&
+			((y + piece_offsets[1].second >= 0) &&
+				(minos[(x + piece_offsets[1].first)][(y + piece_offsets[1].second)] == tetris_block::empty)) &&
+			((y + piece_offsets[2].second >= 0) &&
+				(minos[(x + piece_offsets[2].first)][(y + piece_offsets[2].second)] == tetris_block::empty)) &&
+			((y + piece_offsets[3].second >= 0) &&
+				(minos[(x + piece_offsets[3].first)][(y + piece_offsets[3].second)] == tetris_block::empty));
+
+
+	}
+
 	void place_pieces(int x, int y, std::span<const std::pair<int8_t, int8_t>> piece_offsets, tetris_block block_color) {
 		for (const auto offset : piece_offsets) {
 			minos[x + offset.first][y + offset.second] = block_color;
@@ -353,7 +367,7 @@ struct tetris_game {
 	}
 
 	std::optional<int> drop_piece_1() {
-		if (board.can_place_piece_on_board(piece_center_x, piece_center_y - 1, piece_offsets[(int)current_piece][orientation])) {
+		if (board.can_place_piece_on_board_fast(piece_center_x, piece_center_y - 1, piece_offsets[(int)current_piece][orientation])) {
 			--piece_center_y;
 			return std::nullopt;
 		} else {
@@ -413,9 +427,9 @@ struct tetris_game {
 			const auto b = ~(unsigned)_mm256_movemask_epi8(c);
 			compressed_cols &= b;
 		}
-		const int number_of_lines_cleared = std::popcount(compressed_cols);
 
 		if (compressed_cols) {
+			const int number_of_lines_cleared = std::popcount(compressed_cols);
 			const auto y_start = std::countr_zero(compressed_cols);
 			compressed_cols >>= y_start;
 			for (int y = y_start; y < 32 && compressed_cols; (++y, compressed_cols >>= 1)) {
@@ -427,8 +441,10 @@ struct tetris_game {
 				auto thing = std::ranges::remove_if(column, [](tetris_block a) { return a == tetris_block::dead; });
 				std::ranges::fill(thing, tetris_block::empty);
 			}
+			return number_of_lines_cleared;
+		}else {
+			return 0;
 		}
-		return number_of_lines_cleared;
 		/*
 		std::array<int8_t, 10> heights = {};
 		for (int i = 0; i < heights.size(); ++i) {

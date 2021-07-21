@@ -10,11 +10,12 @@
 #include "ai_arena.h"
 #include "tetris_ai_player.h"
 #include "good_ai.h"
+#include "ref_count_ptr.h"
 
 
 
 
-struct game_settings {
+struct game_data {
 	std::vector<std::pair<action, sf::Keyboard::Key>> keybinds = {
 		{action::move_left, sf::Keyboard::Left},
 		{action::soft_drop, sf::Keyboard::Down},
@@ -167,7 +168,7 @@ struct dead_state {
 		ai_player_ptr(std::move(ai_player)) {}
 
 
-	std::optional<std::variant<playing_pVai_state>> update(sfml_event_handler<track_hold_times<>>& event_handler, game_settings& settings);
+	std::optional<std::variant<playing_pVai_state>> update(sfml_event_handler<track_hold_times<>>& event_handler, game_data& settings);
 
 	std::chrono::milliseconds time_till_playing = 2s;
 
@@ -184,7 +185,7 @@ struct playing_pVai_state {
 		ai_player_ptr->start_doing_stuff();
 	}
 
-	std::optional<std::variant<dead_state>> update(sfml_event_handler<track_hold_times<>>& event_handler,game_settings& settings) {
+	std::optional<std::variant<dead_state>> update(sfml_event_handler<track_hold_times<>>& event_handler,game_data& settings) {
 		auto& window = event_handler.window();
 		auto& player = *player_ptr;
 		auto& ai_player = *ai_player_ptr;
@@ -297,7 +298,7 @@ struct playing_pVai_state {
 			}
 
 
-			player.recieve_update({ {actions}, {new_actions_this_frame}, event_handler.time_since_last_poll() }, garbage_to_player_this_update);
+			//player.recieve_update({ {actions}, {new_actions_this_frame}, event_handler.time_since_last_poll() }, garbage_to_player_this_update);
 			//ai_player2.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 2 * new_actions_this_frame[7]);
 			ai_player.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 0 * new_actions_this_frame[7]);
 
@@ -321,7 +322,7 @@ struct playing_pVai_state {
 	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_ai;
 };
 
-std::optional<std::variant<playing_pVai_state>> dead_state::update(sfml_event_handler<track_hold_times<>>& event_handler, game_settings& settings) {
+std::optional<std::variant<playing_pVai_state>> dead_state::update(sfml_event_handler<track_hold_times<>>& event_handler, game_data& settings) {
 	auto& window = event_handler.window();
 	auto& player = *player_ptr;
 	auto& ai_player = *ai_player_ptr;
@@ -358,38 +359,12 @@ int main() {
 
 	sfml_event_handler<track_hold_times<>> event_handler(window);
 
-	game_settings settings;
+	game_data settings;
 
 	window.setFramerateLimit(60);
 	static constexpr int awasdasd = sizeof(track_hold_times<>);
-	auto player = tetris_game_keyboard_player(tetris_game_settings{
-			.das_time = 50ms,
-			.arr_time = 8ms,
-			.delay_between_drops = 5ms,
-			.garbage_delay = 20ms,
-			.max_soft_dropping_time = 5s,
-			.soft_drop_multiplier = 50
-		}
-	);
 
 
-	auto ai_player = tetris_ai_player(
-		executor.get_executor(),
-		ai_settings{
-			.piece_delay = 1ms
-		}
-	);
-
-	std::array<bool, (int)action::size> actions = {};
-
-	player.start_doing_stuff_now();
-	ai_player.start_doing_stuff();
-
-	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_player;
-	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_ai;
-
-	game_state state = game_state::playing;
-	std::chrono::milliseconds time_till_playing = 2s;
 
 	std::variant<playing_pVai_state, dead_state> game_state = playing_pVai_state(
 		tetris_game_settings{
@@ -402,13 +377,11 @@ int main() {
 		},
 		ai_settings{
 			.piece_delay = 1ms
-		}, executor.get_executor()
+		}, 
+		executor.get_executor()
 
 	);
 
-	std::variant<int, std::string> watmoreland;
-	std::visit([](auto&&) {}, watmoreland);
-	
 	while (window.isOpen()) {
 		event_handler.poll_stuff();
 		(void)std::visit([&](auto& current) {

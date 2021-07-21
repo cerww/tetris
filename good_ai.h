@@ -127,7 +127,7 @@ struct flatstacking_ai {
 		seen_boards.reserve(50000);
 
 		auto res = iterate_board1(
-			6, game,
+			5, game,
 			[&](const tetris_game& game, garbage_calculator calc, int depth, int total_lines_cleared, int total_lines_sent) {//next
 
 				if constexpr (print_stuff) {
@@ -168,7 +168,7 @@ struct flatstacking_ai {
 
 
 				std::vector<next_move_thing> ret;
-				ret.reserve(possible_hard_drop_spots[(int)game.current_piece].size());
+				ret.reserve(possible_hard_drop_spots[(int)game.current_piece].size()/2);
 				bool has_at_least_1_tspin = false;
 
 				if (do_tspins) {

@@ -33,6 +33,11 @@ struct tetris_ai_player :ref_counted {
 		m_game.current_piece = tetris_piece::no_piece;
 	}
 
+	~tetris_ai_player() {
+		stop_doing_stuff();
+		while (m_ai_is_updating);
+	}
+
 	tetris_game_update get_update() {
 		std::lock_guard lock(m_mut);//????
 		auto g = m_game;
@@ -71,7 +76,7 @@ struct tetris_ai_player :ref_counted {
 					m_game.generate_new_pieces(m_random_engine);
 				}
 				m_has_next = false;
-				if(m_lines_cleared) {
+				if (m_lines_cleared) {
 					m_time_till_next_piece += 000ms;
 				}
 				if (!m_ai_is_running) {
@@ -80,6 +85,7 @@ struct tetris_ai_player :ref_counted {
 						auto thing = (*ai)(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
 						std::cout << "watland" << std::endl;
 						if (!ai_should_stop->load() && gm == m_game_number_thingy) {
+							m_ai_is_updating = true;
 							m_game_next = std::move(thing.game);
 							m_garbage_calculator_next = thing.garb_state;
 							m_garbage_sent_since_last_update_next += thing.garbage_sent;
@@ -88,6 +94,7 @@ struct tetris_ai_player :ref_counted {
 							m_has_next = true;
 							m_lines_cleared = thing.lines_cleared;
 							m_game_number_next = gm;
+							m_ai_is_updating = false;
 						}
 					});
 				}
@@ -101,6 +108,7 @@ struct tetris_ai_player :ref_counted {
 			auto thing = (*ai)(m_game, m_garbage_calculator, std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0));
 			std::cout << "watland" << std::endl;
 			if (!*ai_should_stop && gm == m_game_number_thingy) {
+				m_ai_is_updating = true;
 				m_game_next = std::move(thing.game);
 				m_garbage_calculator_next = thing.garb_state;
 				m_garbage_sent_since_last_update_next += thing.garbage_sent;
@@ -109,7 +117,9 @@ struct tetris_ai_player :ref_counted {
 				m_has_next = true;
 				m_lines_cleared = thing.lines_cleared;
 				m_game_number_next = gm;
+				m_ai_is_updating = false;
 			}
+			int iu = 0;
 		});
 	}
 
@@ -134,19 +144,19 @@ struct tetris_ai_player :ref_counted {
 		m_garbage_recieving = {};
 		m_ai_should_stop = std::make_shared<std::atomic<bool>>(false);
 	}
-	
-	const ai_settings& settings()const noexcept {
+
+	const ai_settings& settings() const noexcept {
 		return m_settings;
 	}
 
-	const auto& get_executor()const noexcept {
+	const auto& get_executor() const noexcept {
 		return m_executor;
 	}
 
-	auto& get_executor()noexcept {
+	auto& get_executor() noexcept {
 		return m_executor;
 	}
-	
+
 
 private:
 
@@ -169,6 +179,7 @@ private:
 	std::shared_ptr<std::atomic<bool>> m_ai_should_stop = std::make_shared<std::atomic<bool>>(false);
 
 	std::atomic<int> m_game_number_thingy = 0;
+	std::atomic<bool> m_ai_is_updating = false;
 
 	std::atomic<bool> m_has_next = false;
 	tetris_game m_game_next;
@@ -178,11 +189,3 @@ private:
 	int m_lines_cleared = 0;
 	int m_game_number_next = 0;
 };
-
-
-
-
-
-
-
-

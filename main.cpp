@@ -11,133 +11,10 @@
 #include "tetris_ai_player.h"
 #include "good_ai.h"
 #include "ref_count_ptr.h"
-
-
-
-
-struct game_data {
-	std::vector<std::pair<action, sf::Keyboard::Key>> keybinds = {
-		{action::move_left, sf::Keyboard::Left},
-		{action::soft_drop, sf::Keyboard::Down},
-		{action::hard_drop, sf::Keyboard::Space},
-		{action::move_right, sf::Keyboard::Right},
-		{action::swap_held_piece, sf::Keyboard::LShift},
-		{action::rotate_left, sf::Keyboard::Z},
-		{action::rotate_right, sf::Keyboard::X},
-	};
-	std::vector<std::pair<action, int>> joystick_binds = {
-		{action::move_left, 14},
-		{action::soft_drop, 13},
-		{action::hard_drop, 12},
-		{action::move_right, 15},
-		{action::swap_held_piece, 4},
-		{action::rotate_left, 1},
-		{action::rotate_right, 2},
-	};
-
-	std::vector<std::tuple<action, sf::Joystick::Axis, float>> joy_stick_axis = {
-		{action::move_left, sf::Joystick::Axis::PovX, -0.5f},
-		{action::move_right, sf::Joystick::Axis::PovX, 0.5f},
-		{action::soft_drop, sf::Joystick::Axis::PovY, -0.5f},
-		{action::hard_drop, sf::Joystick::Axis::PovY, 0.5f},
-	};
-
-
-};
-
-sf::Color piece_color(tetris_piece p) {
-	static const auto colors = std::array{
-		sf::Color(255, 165, 0),
-		sf::Color::Blue,
-		sf::Color::Yellow,
-		sf::Color(100, 100, 255),
-		sf::Color::Magenta,
-		sf::Color::Red,
-		sf::Color::Green
-	};
-	return colors[(int)p];
-}
-
-sf::Color ghost_piece_color(tetris_piece p) {
-	const auto a = piece_color(p);
-	return sf::Color(a.r, a.g, a.b, 100);
-}
-
-sf::Color mino_to_color(tetris_block mino_color) {
-	static const auto colors = std::array{
-		sf::Color(220, 220, 220),
-		sf::Color(255, 165, 0),
-		sf::Color::Blue,
-		sf::Color::Yellow,
-		sf::Color(100, 100, 255),
-		sf::Color::Magenta,
-		sf::Color::Red,
-		sf::Color::Green,
-		sf::Color(100, 100, 100),
-	};
-	return colors[(int)mino_color];
-}
-
-void draw_piece(sf::RenderWindow& window, std::span<const std::pair<int8_t, int8_t>> offsets, int x, int y, sf::Color color, double scale = 1.0) {
-	for (const auto piece : offsets) {
-		sf::RectangleShape block(sf::Vector2f(20, 20) * (float)scale);
-		block.setPosition(x + piece.first * 20.f * (float)scale, y - piece.second * 20.f * (float)scale);
-		block.setFillColor(color);
-		block.setOutlineThickness(-0.8f);
-		block.setOutlineColor(sf::Color(200, 200, 200, 180));
-		window.draw(block);
-	}
-}
-
-void draw_tetris_board(sf::RenderWindow& window, const tetris_game_update& stuff, int x, int y) {
-	constexpr int board_height = 400;
-	constexpr int board_width = 200;
-
-
-	sf::RectangleShape board_outline(sf::Vector2f{200, board_height});
-	board_outline.setPosition((float)x, (float)y - board_height + 20);
-	board_outline.setOutlineColor(sf::Color::Green);
-	board_outline.setOutlineThickness(1);
-	window.draw(board_outline);
-
-	for (const auto [i,piece] : ranges::views::enumerate(stuff.game_state.preview_pieces | ranges::views::take(5))) {
-		draw_piece(
-			window, piece_offsets[(int)piece][0],
-			x + 200 + 50, y + 60 * i - 350,
-			piece_color(piece),
-			0.9
-		);
-	}
-
-	for (int i = 0; i < stuff.game_state.board.minos.size(); ++i) {
-		for (int j = 0; j < std::min((int)stuff.game_state.board.minos[i].size(), 20); ++j) {
-			sf::RectangleShape block(sf::Vector2f(20, 20));
-			block.setPosition(x + i * 20, y - j * 20);
-			block.setFillColor(mino_to_color(stuff.game_state.board.minos[i][j]));
-			block.setOutlineThickness(-0.8f);
-			block.setOutlineColor(sf::Color(200, 200, 200, 180));
-			window.draw(block);
-		}
-	}
-
-	if (stuff.game_state.current_piece != tetris_piece::no_piece) {
-		draw_piece(window, piece_offsets[(int)stuff.game_state.current_piece][stuff.game_state.orientation],
-				   stuff.game_state.piece_center_x * 20 + x, y - stuff.game_state.piece_center_y * 20,
-				   piece_color(stuff.game_state.current_piece));
-		draw_piece(window, piece_offsets[(int)stuff.game_state.current_piece][stuff.game_state.orientation],
-				   stuff.game_state.piece_center_x * 20 + x, y - stuff.game_state.get_ghost_piece_y() * 20,
-				   ghost_piece_color(stuff.game_state.current_piece));
-	}
-
-	if (stuff.game_state.held_piece.has_value()) {
-		draw_piece(
-			window, piece_offsets[(int)stuff.game_state.held_piece.value()][0],
-			x - 70, y - board_height + 60,
-			piece_color(stuff.game_state.held_piece.value()),
-			0.9
-		);
-	}
-}
+#include "game_data.h"
+#include "screen.h"
+#include "draw_game.h"
+#include "playing_pvAI_screen.h"
 
 enum struct game_state {
 	open,
@@ -162,183 +39,6 @@ struct dead_state;
 
 struct playing_pVai_state;
 
-struct dead_state {
-	dead_state(std::unique_ptr<tetris_game_keyboard_player> player, std::unique_ptr<tetris_ai_player> ai_player) :
-		player_ptr(std::move(player)),
-		ai_player_ptr(std::move(ai_player)) {}
-
-
-	std::optional<std::variant<playing_pVai_state>> update(sfml_event_handler<track_hold_times<>>& event_handler, game_data& settings);
-
-	std::chrono::milliseconds time_till_playing = 2s;
-
-	std::unique_ptr<tetris_game_keyboard_player> player_ptr;
-	std::unique_ptr<tetris_ai_player> ai_player_ptr;
-};
-
-struct playing_pVai_state {
-	playing_pVai_state(tetris_game_settings player_settings, ai_settings ai_setting,boost::asio::any_io_executor executor) :
-		player_ptr(std::make_unique<tetris_game_keyboard_player>(player_settings)),
-		ai_player_ptr(std::make_unique<tetris_ai_player>(executor,ai_setting))
-	{
-		player_ptr->start_doing_stuff_now();
-		ai_player_ptr->start_doing_stuff();
-	}
-
-	std::optional<std::variant<dead_state>> update(sfml_event_handler<track_hold_times<>>& event_handler,game_data& settings) {
-		auto& window = event_handler.window();
-		auto& player = *player_ptr;
-		auto& ai_player = *ai_player_ptr;
-
-		
-		std::array<bool, (int)action::size> actions_this_frame = {};
-		std::ranges::fill(actions_this_frame, false);
-
-		for (auto [action, key] : settings.keybinds) {
-			if (event_handler.is_held(key)) {
-				actions_this_frame[(int)action] = true;
-			}
-		}
-
-		for (auto [action, key] : settings.joystick_binds) {
-			if (event_handler.is_any_pressed(key)) {
-				actions_this_frame[(int)action] = true;
-			}
-		}
-
-		for (auto [action, axis, amount] : settings.joy_stick_axis) {
-			if (amount < 0) {
-				if (sf::Joystick::getAxisPosition(0, axis) <= amount) {
-					actions_this_frame[(int)action] = true;
-				}
-			}
-			else if (amount > 0) {
-				if (sf::Joystick::getAxisPosition(0, axis) >= amount) {
-					actions_this_frame[(int)action] = true;
-				}
-			}
-		}
-		std::array<bool, (int)action::size> new_actions_this_frame = {};
-
-		for (auto [a, b, c] : ranges::views::zip(actions, actions_this_frame, new_actions_this_frame)) {
-			c = b && !a;
-		}
-
-		actions = actions_this_frame;
-
-		const auto game_update = player.get_update();
-		const auto ai_game_update = ai_player.get_update();
-		if (game_update.died || ai_game_update.died) {
-			player.stop_doing_stuff();
-			ai_player.stop_doing_stuff();
-			//state = game_state::open;
-
-			window.clear(sf::Color(100, 100, 100));
-			draw_tetris_board(window, game_update, 200, 600);
-			draw_tetris_board(window, ai_game_update, 800, 600);
-			
-			return dead_state(std::move(player_ptr),std::move(ai_player_ptr));
-		}
-		else {
-			if (game_update.garbage_sent) {
-				std::cout << game_update.garbage_sent << std::endl;
-				int garbage_left = game_update.garbage_sent;
-				std::ranges::sort(garbage_to_player, std::greater<>(), [](auto& a) { return a.second; });
-				while (!garbage_to_player.empty() && garbage_left) {
-					const int garb_to_cancel = std::min((int)garbage_left, (int)garbage_to_player.back().first);
-					garbage_to_player.back().first -= garb_to_cancel;
-					garbage_left -= garb_to_cancel;
-					if (garbage_to_player.back().first == 0) {
-						garbage_to_player.pop_back();
-					}
-				}
-
-				if (garbage_left) {
-					garbage_to_ai.emplace_back(garbage_left, 1s);
-				}
-			}
-
-			if (ai_game_update.garbage_sent) {
-				int garbage_left = ai_game_update.garbage_sent;
-				std::ranges::sort(garbage_to_ai, std::greater<>(), [](auto& a) { return a.second; });
-				while (!garbage_to_ai.empty() && garbage_left) {
-					const int garb_to_cancel = std::min((int)garbage_left, (int)garbage_to_ai.back().first);
-					garbage_to_ai.back().first -= garb_to_cancel;
-					garbage_left -= garb_to_cancel;
-					if (garbage_to_ai.back().first == 0) {
-						garbage_to_ai.pop_back();
-					}
-				}
-
-				if (garbage_left) {
-					garbage_to_player.emplace_back(garbage_left, 1s);
-				}
-			}
-
-			int garbage_to_ai_this_update = 0;
-			int garbage_to_player_this_update = 0;
-			if (!garbage_to_ai.empty()) {
-				const auto res = std::ranges::partition(garbage_to_ai, [&](auto a) { return a.second > event_handler.time_since_last_poll(); });
-				for (auto& a : std::ranges::subrange(garbage_to_ai.begin(), res.begin())) {
-					a.second -= event_handler.time_since_last_poll();
-				}
-
-				garbage_to_ai_this_update = ranges::accumulate(res | ranges::views::transform([](auto a) { return a.first; }), 0);
-				garbage_to_ai.erase(res.begin(), res.end());
-			}
-
-			if (!garbage_to_player.empty()) {
-				const auto res = std::ranges::partition(garbage_to_player, [&](auto a) { return a.second > event_handler.time_since_last_poll(); });
-				for (auto& a : std::ranges::subrange(garbage_to_player.begin(), res.begin())) {
-					a.second -= event_handler.time_since_last_poll();
-				}
-
-				garbage_to_player_this_update = ranges::accumulate(res | ranges::views::transform([](auto a) { return a.first; }), 0);
-				garbage_to_player.erase(res.begin(), res.end());
-			}
-
-
-			//player.recieve_update({ {actions}, {new_actions_this_frame}, event_handler.time_since_last_poll() }, garbage_to_player_this_update);
-			//ai_player2.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 2 * new_actions_this_frame[7]);
-			ai_player.receive_update(event_handler.time_since_last_poll(), garbage_to_ai_this_update + 0 * new_actions_this_frame[7]);
-
-			window.clear(sf::Color(100, 100, 100));
-			draw_tetris_board(window, game_update, 200, 600);
-			draw_tetris_board(window, ai_game_update, 800, 600);
-
-			const auto heights = col_heights(game_update.game_state.board.minos);
-			//std::cout << flatstacking_ai::covered_sections(game_update.game_state.board, heights)<<std::endl;
-		}
-		return std::nullopt;
-	}
-	
-	
-	std::array<bool, (int)action::size> actions = {};
-	
-	std::unique_ptr<tetris_game_keyboard_player> player_ptr;
-	std::unique_ptr<tetris_ai_player> ai_player_ptr;
-
-	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_player;
-	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_ai;
-};
-
-std::optional<std::variant<playing_pVai_state>> dead_state::update(sfml_event_handler<track_hold_times<>>& event_handler, game_data& settings) {
-	auto& window = event_handler.window();
-	auto& player = *player_ptr;
-	auto& ai_player = *ai_player_ptr;
-
-	time_till_playing -= event_handler.time_since_last_poll();
-
-	window.clear(sf::Color(100, 100, 100));
-	draw_tetris_board(window, player.get_update(), 200, 600);
-	draw_tetris_board(window, ai_player.get_update(), 800, 600);
-	
-	if (time_till_playing <= 0s) {
-		time_till_playing = 2s;
-		return playing_pVai_state(player.settings(), ai_player.settings(), ai_player.get_executor());
-	}
-	return std::nullopt;
-}
 
 int main() {
 	bool do_ai_thing = false;
@@ -357,16 +57,14 @@ int main() {
 
 	sf::RenderWindow window(sf::VideoMode(1500, 800), "wat");
 
-	sfml_event_handler<track_hold_times<>> event_handler(window);
+	event_handler_t event_handler(window);
 
 	game_data settings;
 
 	window.setFramerateLimit(60);
 	static constexpr int awasdasd = sizeof(track_hold_times<>);
 
-
-
-	std::variant<playing_pVai_state, dead_state> game_state = playing_pVai_state(
+	screen_thingy game_state = playing_pVai_state(
 		tetris_game_settings{
 			.das_time = 50ms,
 			.arr_time = 8ms,
@@ -377,24 +75,19 @@ int main() {
 		},
 		ai_settings{
 			.piece_delay = 1ms
-		}, 
+		},
 		executor.get_executor()
 
 	);
 
 	while (window.isOpen()) {
 		event_handler.poll_stuff();
-		(void)std::visit([&](auto& current) {
-			auto next_state = current.update(event_handler,settings);
-			if(next_state.has_value()) {
-				//game_state = std::move(*next_state);
-				
-				std::visit([&](auto& s) {
-					game_state = std::move(s);
-				},next_state.value());
-				
-			}
-		}, game_state);
+
+		auto next_state = game_state.update(event_handler, settings);
+		if (next_state.has_value()) {
+			game_state = std::move(*next_state);
+
+		}
 		
 		window.display();
 	}

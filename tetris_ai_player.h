@@ -12,6 +12,7 @@
 #include "task_completion_handler.h"
 #include "good_ai.h"
 
+
 struct ai_settings {
 	std::chrono::milliseconds piece_delay = 1000ms;
 };

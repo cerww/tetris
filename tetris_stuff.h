@@ -17,6 +17,7 @@
 #include "rotation_table.h"
 #include "sbo_vector.h"
 #include <bit>
+#include <boost/container/small_vector.hpp>
 
 using namespace std::literals;
 
@@ -356,7 +357,7 @@ inline int height_start(tetris_piece piece, int orientation, const tetris_board&
 
 struct tetris_game {
 
-	int hard_drop() {
+	__declspec(noinline) int hard_drop() {
 		piece_center_y = std::min(height_start(current_piece, orientation, board, piece_center_x), piece_center_y);
 
 		auto a = drop_piece_1();
@@ -569,6 +570,7 @@ struct tetris_game {
 	tetris_board board = {};
 	sbo_vector<tetris_piece, 16> preview_pieces;
 	//std::vector<tetris_piece> preview_pieces;
+	//boost::container::small_vector<tetris_piece, 16> preview_pieces;
 	
 	tetris_piece current_piece;
 	int orientation = 0;
@@ -634,8 +636,8 @@ struct tetris_game_settings {
 
 
 struct garbage_calculator {
-	static constexpr std::array<int, 15> combo_table = {
-		0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5
+	static constexpr std::array<int8_t, 16> combo_table = {
+		0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5,5
 	};
 
 	int operator()(int lines_cleared, rotate_info last_rotation, bool is_pc = false) {

@@ -11,10 +11,12 @@ struct compressed_board {
 		//const __m256i compare_to = _mm256_set1_epi8(0);
 		for (int x = 0; x < 10; ++x) {
 
+			//*
 			const auto things = _mm256_load_si256((const __m256i*)&b.minos[x]);
 			const auto zeros = _mm256_setzero_si256();
 			const auto c = _mm256_cmpeq_epi8(things, zeros);
 			ret.board[x] = ~(unsigned)_mm256_movemask_epi8(c);
+			//*/
 			/*
 			for (int y = 0; y < b.minos[x].size(); ++y) {
 
@@ -22,7 +24,7 @@ struct compressed_board {
 					ret.board[x] |= 1 << y;
 				}
 			}
-			*/
+			//*/
 		}
 		return ret;
 	}
@@ -554,7 +556,7 @@ struct flatstacking_ai {
 					covered_square += slots * slots;
 				}
 			}
-			*/
+			//*/
 		}
 		return {covered_slots, covered_square};
 	}
@@ -563,6 +565,7 @@ struct flatstacking_ai {
 		int covered_sections = 0;
 
 		for (int x = 0; x < 10; ++x) {
+			//*
 			const auto things = _mm256_load_si256((const __m256i*)&board.minos[x]);
 			const auto zeros = _mm256_setzero_si256();
 			const auto c = _mm256_cmpeq_epi8(things, zeros);
@@ -574,6 +577,16 @@ struct flatstacking_ai {
 			const auto not_empty_slots2 = b & 0b01010101010101010101010101010101;
 			const auto should_be_empty_slots2 = (~b & 0b00101010101010101010101010101010);
 			covered_sections += std::popcount(((not_empty_slots1 >> 1) & should_be_empty_slots1) | ((not_empty_slots2 >> 1) & should_be_empty_slots2));
+			/*/
+			//*
+			const auto height = get_col_height(board.minos[x]);
+			for(int i = 0;i<height-1;++i) {
+				if(board.minos[x][i] == tetris_block::empty && board.minos[x][i+1] != tetris_block::empty) {
+					++covered_sections;
+				}
+				
+			}
+			//*/
 		}
 
 
@@ -584,12 +597,22 @@ struct flatstacking_ai {
 		int covered_sections = 0;
 
 		for (int x = 0; x < 10; ++x) {
+			//*
 			const auto things = _mm256_load_si256((const __m256i*)&board.minos[x]);
 			const auto zeros = _mm256_setzero_si256();
 			const auto c = _mm256_cmpeq_epi8(things, zeros);
 			const auto b = ~(unsigned)_mm256_movemask_epi8(c);
 			const auto height = 32 - std::countl_zero(b);
 			covered_sections += height - std::popcount(b);
+			//*/
+			/*
+			const auto height = get_col_height(board.minos[x]);
+			for(int i = 0;i<height-1;++i) {
+				if(board.minos[x][i] == tetris_block::empty) {
+					++covered_sections;
+				}
+			}
+			//*/
 		}
 		return covered_sections;
 	}

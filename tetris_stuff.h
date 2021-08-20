@@ -68,7 +68,7 @@ enum struct tetris_piece :int8_t {
 struct tetris_board {
 	alignas(32) std::array<std::array<tetris_block, 32>, 10> minos = {};
 
-	bool can_place_piece_on_board(int x, int y, std::span<const std::pair<int, int>> piece_offsets) const noexcept {
+	bool can_place_piece_on_board(int x, int y, std::span<const std::pair<int8_t, int8_t>> piece_offsets) const noexcept {
 		return std::ranges::all_of(piece_offsets, [&](std::pair<int, int> offset) {
 			const int new_x = x + offset.first;
 			const int new_y = y + offset.second;
@@ -248,20 +248,22 @@ constexpr int get_col_height(std::span<const tetris_block> col) {
 
 inline int get_col_height(const std::array<tetris_block, 32>& col) {
 	//const alignas(32) std::array<tetris_block, 32> col = col_;
-
+	//*
 	const auto things = _mm256_load_si256((const __m256i*)&col);
 	const auto zeros = _mm256_setzero_si256();
 	const auto c = _mm256_cmpeq_epi8(things, zeros);
 	const unsigned thingy1 = _mm256_movemask_epi8(c);
 	const auto h = std::countl_zero(~thingy1);
 	return 32 - h;
-
+	//*/
+	/*
 	int ret = 20;
 	while (ret >= 1 && col[ret - 1] == tetris_block::empty) {
 		--ret;
 	}
 
 	return ret;
+	//*/
 }
 
 inline std::array<int8_t, 10> col_heights(const std::array<std::array<tetris_block, 32>, 10>& board) {
@@ -418,7 +420,7 @@ struct tetris_game {
 				return board.minos[n][y_];
 			});
 		};
-
+		//*
 		const auto zeros = _mm256_setzero_si256();
 
 		uint32_t compressed_cols = 0xFFFFFFFF;
@@ -446,7 +448,9 @@ struct tetris_game {
 		}else {
 			return 0;
 		}
+		//*/
 		/*
+		int number_of_lines_cleared = 0;
 		std::array<int8_t, 10> heights = {};
 		for (int i = 0; i < heights.size(); ++i) {
 			heights[i] = (int8_t)get_col_height(board.minos[i]);
@@ -467,7 +471,7 @@ struct tetris_game {
 			}
 		}
 		return number_of_lines_cleared;
-		*/
+		//*/
 	}
 
 	bool try_spawn_new_piece() {
@@ -496,6 +500,12 @@ struct tetris_game {
 
 	template<size_t N>
 	void generate_new_pieces(std::mt19937& engine, std::array<tetris_piece, N> pieces) {
+		std::ranges::shuffle(pieces, engine);
+		ranges::push_back(preview_pieces, pieces);
+	}
+	
+	template<typename T>
+	void generate_new_pieces(std::mt19937& engine, T pieces) {
 		std::ranges::shuffle(pieces, engine);
 		ranges::push_back(preview_pieces, pieces);
 	}
@@ -582,10 +592,10 @@ struct tetris_game {
 private:
 	bool is_tspin() const noexcept {
 		return (
-			(piece_center_y + 1 < 22 && piece_center_x + 1 < 10
+			(piece_center_y + 1 < 32 && piece_center_x + 1 < 10
 				 ? (board.minos[piece_center_x + 1][piece_center_y + 1] != tetris_block::empty)
 				 : 1) +
-			(piece_center_y + 1 < 22 && piece_center_x - 1 >= 0
+			(piece_center_y + 1 < 32 && piece_center_x - 1 >= 0
 				 ? (board.minos[piece_center_x - 1][piece_center_y + 1] != tetris_block::empty)
 				 : 1) +
 			(piece_center_y - 1 >= 0 && piece_center_x + 1 < 10

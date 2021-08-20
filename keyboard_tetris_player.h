@@ -4,14 +4,19 @@
 #include "tetris_stuff.h"
 
 struct tetris_game_keyboard_player {
-	explicit tetris_game_keyboard_player(tetris_game_settings settings) :
+	explicit tetris_game_keyboard_player(tetris_game_settings settings, std::optional<std::vector<tetris_piece>> custom_bag = std::nullopt) :
+		m_custom_bag(std::move(custom_bag)),
 		m_random_engine(([]() {
 			std::random_device r;
 			return r();
 		})()),
 		m_settings(settings) {
 		while (m_game.preview_pieces.size() <= 6) {
-			m_game.generate_new_pieces(m_random_engine);
+			if (m_custom_bag) {
+				m_game.generate_new_pieces(m_random_engine,m_custom_bag.value());
+			} else {
+				m_game.generate_new_pieces(m_random_engine);
+			}
 		}
 		m_game.try_spawn_new_piece();
 	}
@@ -241,7 +246,7 @@ private:
 
 		return lines_sent;
 	}
-
+	std::optional<std::vector<tetris_piece>> m_custom_bag;
 	bool m_is_doing_stuff = false;
 	std::mt19937 m_random_engine;
 	tetris_game_settings m_settings;

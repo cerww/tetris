@@ -36,7 +36,8 @@ struct tetris_ai_player :ref_counted {
 
 	~tetris_ai_player() {
 		stop_doing_stuff();
-		while (m_ai_is_updating);
+		//keep vars alive while it updates vars, shuold be like just copying bytes here
+		while (m_ai_is_updating);//wat
 	}
 
 	tetris_game_update get_update() {

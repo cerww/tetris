@@ -4,6 +4,7 @@
 #include "ref_count_ptr.h"
 #include "sbo_vector.h"
 #include <ranges>
+#include "css_stuff.h"
 
 struct ui_thingy {
 private:
@@ -340,253 +341,9 @@ private:
 	T& m_me;
 };
 
-enum struct display_type:int8_t {
-	inline_,
-	block,
-	grid,
-};
-
-struct default_land {};
-
-
-template<typename T>
-struct with_colour {
-	static constexpr int id_land = 0;
-};
-
-template<typename T>
-struct with_font_size {
-	static constexpr int id_land = 1;
-};
-
-template<typename T>
-struct with_margin_left {
-	static constexpr int id_land = 2;
-};
-
-template<typename T>
-struct with_margin_right {
-	static constexpr int id_land = 3;
-};
-
-template<typename T>
-struct with_margin_top {
-	static constexpr int id_land = 4;
-};
-
-template<typename T>
-struct with_margin_bottom {
-	static constexpr int id_land = 5;
-};
-
-template<typename T>
-struct with_padding_left {
-	static constexpr int id_land = 6;
-};
-
-template<typename T>
-struct with_padding_right {
-	static constexpr int id_land = 7;
-};
-
-template<typename T>
-struct with_padding_top {
-	static constexpr int id_land = 8;
-};
-
-template<typename T>
-struct with_padding_bottom {
-	static constexpr int id_land = 9;
-};
-
-template<typename T>
-struct with_min_width {
-	static constexpr int id_land = 9;
-};
-
-template<typename T>
-struct with_width {
-	static constexpr int id_land = 9;
-	T a;
-};
-
-template<typename T>
-struct with_max_width {
-	static constexpr int id_land = 9;
-};
-
-template<typename T>
-struct with_min_height {
-	static constexpr int id_land = 9;
-};
-
-template<typename T>
-struct with_height {
-	static constexpr int id_land = 9;
-	T a;
-};
-
-template<typename T>
-struct with_max_height {
-	static constexpr int id_land = 9;
-};
-
-
-template<typename T>
-struct with_display {
-	static constexpr int id_land = 9;
-	T thing;
-};
-
-
-
-
-template<typename T, template<typename> typename W>
-struct is_specialization :std::false_type { };
-
-template<typename T, template<typename> typename W>
-struct is_specialization<W<T>, W> :std::true_type { };
-
-template<typename T, typename U>
-struct same_template :std::false_type {};
-
-template<typename T, typename U, template<typename>typename W>
-struct same_template<W<T>, W<U>> :std::true_type {};
-
-template<typename T, template<typename> typename W>
-constexpr bool is_specialization_v = is_specialization<T, W>::value;
-
-static_assert(is_specialization_v<with_max_height<int>, with_max_height>);
-
-static_assert(same_template<with_max_height<int>,with_max_height<double>>::value);
-
-static_assert(!same_template<with_max_height<int>, with_max_width<double>>::value);
-
-template<typename...Ts>
-struct typelist {
-	static constexpr bool empty = !(sizeof...(Ts));
-};
-
-static_assert(typelist<>::empty);
-
-template<typename... T>
-struct css_stuff {
-	css_stuff() = default;
-
-	auto display(display_type wat) {
-		return combine_with(with_display<display_type>(wat));
-	}
-
-	auto width(int wat) {
-		return combine_with(with_width<int>(wat));
-	}
-
-	auto height(int wat) {
-		return combine_with(with_height<int>(wat));
-	}
-	
-
-private:
-
-	explicit css_stuff(std::tuple<T...> a) :
-		m_properties(std::move(a)) {}
-
-	template<typename...U>
-	static auto from_tuple(std::tuple<U...> thing) {
-		return css_stuff<U...>(std::move(thing));
-	}
-
-	template<typename U>
-	auto combine_with(U new_property) {
-		if constexpr (sizeof...(T) == 0) {
-			return from_tuple(std::make_tuple(std::move(new_property)));
-		}else {
-			using new_type = decltype(combined_type(typelist<U>(), typelist<T...>(), typelist<>()));
-			new_type wat;
-			wat.steal_stuff(m_properties, new_property);
-			return wat.to_thing();
-		}
-	}
-
-	template<typename...>
-	friend struct css_stuff_fake;
-
-	template<typename...>
-	friend struct css_stuff;
-
-	template<typename...U>
-	struct css_stuff_fake {
-		alignas(std::tuple<U...>) std::array<std::byte, sizeof(std::tuple<U...>)>thing;
-
-		css_stuff<U...> to_thing() {
-			return css_stuff<U...>(as_thing());
-		}	
-
-		std::tuple<U...>& as_thing() {
-			return *std::launder((std::tuple<U...>*)&thing);
-		}
-
-		template<typename... Ts,typename O>
-		void steal_stuff(std::tuple<Ts...>& other,O& wat) {
-			new (&std::get<O>(as_thing())) O(std::move(wat));
-			((new (&std::get<Ts>(as_thing())) Ts(std::move(std::get<Ts>(other)))), ...);
-		}
-	};
-
-
-	template<typename U, typename F, typename...R, typename...Current>
-	static auto combined_type(typelist<U>, typelist<F, R...>, typelist<Current...>) {
-		if constexpr (same_template<U, F>::value) {
-			return css_stuff_fake<Current..., U, R...>();
-		} else {
-			if constexpr (sizeof...(R) == 0) {
-				return css_stuff_fake<Current..., F,U>();
-			} else {
-				return combined_type(typelist<U>(), typelist<R...>(), typelist<Current..., F>());
-			}
-		}
-	}
-
-	std::tuple<T...> m_properties;
-};
-
-template<typename...T>
-css_stuff(std::tuple<T...>)->css_stuff<T...>;
-
-struct css_properties {
-	//colour
-	//bg colour
-	//font-size
-	//margins
-	//padding
-	//border
-	//border style
-	//border radius
-	//display: grid,inline,block;no inline-grid
-	//(max/min)width
-	//(max/min)height
-	//grid row gap
-	//grid column gap
-	//grid template columns
-	//grid template rows
-	//grid row/column span
-	//grid column gap background
-	//grid row gap background
-	//cursor
-	//place items:left,right,center
-	//
-	//hover properties
-	//active properties
-};
 
 template<typename T>
 concept css_styles = true;
-
-template<typename T>
-concept css_ui_node = requires(T t, css_properties c, sf::RenderWindow& w, ui_stuff b)
-{
-	{ t.draw(w, b, c) }->std::same_as<draw_stuff_result>;
-};
 
 template<ui_node_c T>
 struct ui_button {
@@ -596,12 +353,181 @@ private:
 };
 
 
+struct element_node_ref {
+
+	template<typename T>
+	element_node_ref(T thing) {
+		new(m_data.data()) model_t<T>(std::move(thing));
+	}
+
+	element_node_ref(const element_node_ref& other) = delete;
+	element_node_ref& operator=(const element_node_ref& other) = delete;
+
+	/*
+	screen_thingy(const screen_thingy& other) {
+		other.me().copy_to(m_data.data());
+	}
+	*/
+	element_node_ref(element_node_ref&& other) noexcept {
+		other.me().move_to(m_data.data());
+	}
+
+	/*
+	screen_thingy& operator=(const screen_thingy& other) {
+		if (this == &other) {
+			return *this;
+		}
+		std::destroy_at(this);
+		other.me().copy_to(m_data.data());
+		return *this;
+	}
+	*/
+
+	element_node_ref& operator=(element_node_ref&& other) noexcept {
+		if (this == &other) {
+			return *this;
+		}
+		std::destroy_at(this);
+		other.me().move_to(m_data.data());
+		return *this;
+	}
+
+	~element_node_ref() {
+		std::destroy_at(&me());
+	}
+
+
+	void draw(sf::RenderWindow& window) const { }
+
+	void update_states(event_handler_t& e) const {
+		/*
+		if(e.current_mouse_position().x) {
+
+		}
+		*/
+	}
+
+	//why optional?
+	int request_width(int parent_width, int parent_height) {
+		return 0;
+	}
+
+	//recursively sets children locations too
+	std::optional<std::pair<int, int>> set_location(int parent_width, int parent_height, int x, int y, int width_given, int height_given, std::optional<int> width_requested) {
+		return {};
+	}
+
+	std::optional<std::string_view> key() const noexcept {
+		return std::nullopt;
+	}
+
+	std::vector<element_node_ref> children() const noexcept {
+		//return *std::launder((children_t*)&m_children);
+	}
+
+	display_type display_type() const noexcept {
+		//return css_properties().get_display();
+		return display_type::none;
+	}
+
+private:
+
+	struct concept_ {
+		concept_() = default;
+
+		concept_(const concept_&) = delete;
+		concept_& operator=(const concept_&) = delete;
+
+		concept_& operator=(concept_&&) = delete;
+		concept_(const concept_&&) = delete;
+
+		virtual ~concept_() = default;
+
+		virtual void draw(sf::RenderWindow& window) const = 0;
+
+		virtual void update_states(event_handler_t& e) const = 0;
+
+		virtual int request_width(int parent_width, int parent_height) = 0;
+
+		//recursively sets children locations too
+		virtual std::optional<std::pair<int, int>> set_location(int parent_width, int parent_height, int x, int y, int width_given, int height_given, int width_requested) = 0;
+
+		virtual std::optional<std::string_view> key() const noexcept = 0;
+
+		virtual std::vector<element_node_ref> children() const noexcept = 0;
+		virtual ::display_type display_type() const noexcept = 0;
+
+		virtual void move_to(void* ptr) = 0;
+	};
+
+	template<typename T>//is sbo
+	struct model_t final :concept_ {
+		model_t(T* thing) :
+			m_me(thing) { }
+
+
+		void draw(sf::RenderWindow& window) const override {
+			m_me->draw(window);
+		}
+
+		void update_states(event_handler_t& e) const override {
+			m_me->update_states(e);
+		}
+
+		int request_width(int parent_width, int parent_height) override {
+			return m_me->request_width(parent_width,parent_height);
+		}
+
+		std::optional<std::pair<int, int>> set_location(int parent_width, int parent_height, int x, int y, int width_given, int height_given, int width_requested) override {
+			return m_me->set_location(parent_width, parent_height, x, y, width_given, height_given, width_requested);
+		}
+
+		std::optional<std::string_view> key() const noexcept override {
+			return m_me->key();
+		}
+
+		std::vector<element_node_ref> children() const noexcept override {
+			return m_me->children();
+		}
+
+		::display_type display_type() const noexcept override {
+			return m_me->display_type();
+		}
+		
+		void move_to(void* ptr) override {
+			new(ptr) model_t(std::move(*this));
+		}
+
+	private:
+		T* m_me;
+	};
+
+	concept_& me() {
+		return *std::launder(reinterpret_cast<concept_*>(m_data.data()));
+	}
+
+	const concept_& me() const {
+		return *std::launder(reinterpret_cast<const concept_*>(m_data.data()));
+	}
+
+	alignas(std::max_align_t) std::array<std::byte, 24> m_data = {};
+
+};
+
+template<typename T>
+concept element_land = requires(T t)
+{
+	{ t.draw(std::declval<sf::RenderWindow>()) };
+	{ t.request_width(1, 1) }->std::same_as<std::optional<int>>;
+	{ t.update(std::declval<event_handler_t>()) };
+};
+
 struct text_node {
 	draw_stuff_result draw(sf::RenderWindow& window, const ui_stuff thing) const {
 		return {};
 	}
 
-	draw_stuff_result draw(sf::RenderWindow& window, const ui_stuff thing, css_properties& properties) const {
+	draw_stuff_result draw(sf::RenderWindow& window, const ui_stuff thing, css_properties_stack& properties) const {
 		return {};
 		//return m_me.draw(window, thing);		
 	}
@@ -634,11 +560,74 @@ struct on_click {
 };
 
 template<typename... Ts>
+struct element_node;
+
+template<typename T>
+struct is_element_node :std::false_type {};
+
+template<typename ...T>
+struct is_element_node<element_node<T...>> :std::true_type {};
+
+template<typename children, typename hover, typename click, typename hover_off, typename css>
+struct element_data_types {
+	using children_t = children;
+	using hover_t = hover;
+	using click_t = click;
+	using hover_off_t = hover_off;
+	using css_t = css;
+};
+
+template<typename T>
+struct is_css_thing :std::false_type {};
+
+template<typename ...T>
+struct is_css_thing<css_stuff<T...>> :std::true_type {};
+
+template<typename F, typename...Ts, typename...children, typename... hover, typename...click, typename...hover_off, typename css>
+auto make_data_stuff(typelist<F, Ts...> rest, typelist<children...>, typelist<hover...>, typelist<click...>, typelist<hover_off...>, typelist<css>) {
+	if constexpr (sizeof...(Ts) == 0) {
+		if constexpr (is_element_node<F>::value) {
+			return element_data_types<std::tuple<children..., F>, std::tuple<hover...>, std::tuple<click...>, std::tuple<hover_off...>, css>();
+		} else if constexpr (is_css_thing<F>::value) {
+			return element_data_types<std::tuple<children...>, std::tuple<hover...>, std::tuple<click...>, std::tuple<hover_off...>,
+									  decltype(combine_css_f::combine_with(std::declval<css>(), std::declval<F>()))>();
+		} else if constexpr (std::convertible_to<F, std::string>) {
+			return element_data_types<std::tuple<children..., F>, std::tuple<hover...>, std::tuple<click...>, std::tuple<hover_off...>, css>();
+		} else if constexpr (is_specialization<F, on_click>::value) {
+			return element_data_types<std::tuple<children...>, std::tuple<hover...>, std::tuple<click..., F>, std::tuple<hover_off...>, css>();
+		} else if constexpr (is_specialization<F, on_mouseoff>::value) {
+			return element_data_types<std::tuple<children...>, std::tuple<hover...>, std::tuple<click...>, std::tuple<hover_off..., F>, css>();
+		} else if constexpr (is_specialization<F, on_mouseover>::value) {
+			return element_data_types<std::tuple<children...>, std::tuple<hover..., F>, std::tuple<click...>, std::tuple<hover_off...>, css>();
+		} else if constexpr (is_specialization<F, on_click>::value) {
+			return element_data_types<std::tuple<children...>, std::tuple<hover...>, std::tuple<click..., F>, std::tuple<hover_off...>, css>();
+		}
+	} else {
+		if constexpr (is_element_node<F>::value) {
+			return make_data_stuff(typelist<Ts...>(), typelist<children..., F>(), typelist<hover...>(), typelist<click...>(), typelist<hover_off...>(), typelist<css>());
+		} else if constexpr (is_css_thing<F>::value) {
+			return make_data_stuff(typelist<Ts...>(), typelist<children...>(), typelist<hover...>(), typelist<click...>(), typelist<hover_off...>(),
+								   typelist<decltype(combine_css_f::combine_with(std::declval<css>(), std::declval<F>()))>());
+		} else if constexpr (std::convertible_to<F, std::string>) {
+			return make_data_stuff(typelist<Ts...>(), typelist<children..., F>(), typelist<hover...>(), typelist<click...>(), typelist<hover_off...>(), typelist<css...>());
+		} else if constexpr (is_specialization<F, on_click>::value) {
+			return make_data_stuff(typelist<Ts...>(), typelist<children...>(), typelist<hover...>(), typelist<click..., F>(), typelist<hover_off...>(), typelist<css...>());
+		} else if constexpr (is_specialization<F, on_mouseoff>::value) {
+			return make_data_stuff(typelist<Ts...>(), typelist<children...>(), typelist<hover...>(), typelist<click...>(), typelist<hover_off..., F>(), typelist<css...>());
+		} else if constexpr (is_specialization<F, on_mouseover>::value) {
+			return make_data_stuff(typelist<Ts...>(), typelist<children...>(), typelist<hover..., F>(), typelist<click...>(), typelist<hover_off...>(), typelist<css...>());
+		} else if constexpr (is_specialization<F, on_click>::value) {
+			return make_data_stuff(typelist<Ts...>(), typelist<children...>(), typelist<hover...>(), typelist<click..., F>(), typelist<hover_off...>(), typelist<css...>());
+		}
+	}
+}
+
+template<typename... Ts>
 struct element_node {
 
-	void draw(sf::RenderWindow& window, const ui_stuff thing, css_properties& properties) const { }
+	void draw(sf::RenderWindow& window) const { }
 
-	void update(event_handler_t& e) const {
+	void update_states(event_handler_t& e) const {
 		/*
 		if(e.current_mouse_position().x) {
 			
@@ -646,30 +635,117 @@ struct element_node {
 		*/
 	}
 
-	std::pair<std::optional<int>, std::optional<int>> calculate_position(int parent_width, int parent_height, int wanted_x, int wanted_y) {
+	//why optional?
+	int request_width(int parent_width, int parent_height) {
+		if (m_css_properties.get_display() == display_type::inline_) {
+			//sum width of children?
+			return 0;
+		}
+		if (m_css_properties.get_display() == display_type::inline_block) {
+			const auto width = m_css_properties.get_width(parent_width);
+			if (width == auto_()) {
+
+				const auto max_width = calculate_value(m_css_properties.get_max_width(parent_width), parent_width);
+				//const auto total_widths = sum widths;
+			} else { }
+		}
+
+		if (m_css_properties.get_display() == display_type::block || m_css_properties.get_display() == display_type::grid) {
+			const auto width = calculate_width_value(m_css_properties.get_width(parent_width), parent_width);
+			const auto min_width = calculate_width_value(m_css_properties.get_min_width(parent_width), parent_width);
+			const auto max_width = calculate_width_value(m_css_properties.get_max_width(parent_width), parent_width);
+
+			return std::clamp(width.value(), min_width.value_or(0), max_width.value_or(500000000));
+		} else {
+			return 0;
+		}
+	}
+
+	//recursively sets children locations too
+	std::optional<std::pair<int, int>> set_location(int parent_width, int parent_height, int x, int y, int width_given, int height_given, std::optional<int> width_requested) {
 		return {};
 	}
 
-	std::pair<std::optional<int>, std::optional<int>> wanted_dimensions(int parent_width, int parent_height) {
-		return {};
+	std::optional<std::string_view> key() const noexcept {
+		return std::nullopt;
 	}
 
-	std::pair<int, int> set_location(int parent_width, int parent_height, int x, int y) {
-		return {};
+	const auto& children() const noexcept {
+		return *std::launder((children_t*)&m_children);
+	}
+
+	display_type display_type() const noexcept {
+		return css_properties().get_display();
 	}
 
 private:
-	bool m_hover = false;
-	bool m_active = false;
-	std::tuple<Ts...> m_children;
-	css_stuff<Ts...> m_css_properties;
+	using data_stuff = decltype(make_data_stuff(typelist<Ts...>(), typelist<>(), typelist<>(), typelist<>(), typelist<>(), typelist<>()));
+	using children_t = typename data_stuff::children_t;
+	using hover_t = typename data_stuff::hover_t;
+	using click_t = typename data_stuff::click_t;
+	using hover_off_t = typename data_stuff::hover_off_t;
+	using css_t = typename data_stuff::css_t;
+
+	std::optional<int> calculate_width_value(std::optional<pixel_percent_auto> val, int parent_width) const noexcept {
+		if (!val) {
+			return std::nullopt;
+		}
+		if (m_css_properties.get_width(parent_width) == auto_()) {
+			return parent_width;
+		} else {
+			if (val.value().catagory() == percent_bit) {
+				return val.value().value_part() / 10000.0 * parent_width;
+			} else {
+				return val.value().value_part();
+			}
+		}
+	}
+
+	int compute_wanted_width() { }
+
+	bool m_is_hover = false;
+	bool m_is_active = false;
+
+	int m_x = 0;
+	int m_y = 0;
+	int m_width = 0;
+	int m_height = 0;
+
+	const auto& hover() const noexcept {
+		return *std::launder((hover_t*)&m_hover);
+	}
+
+	auto& children() noexcept {
+		return *std::launder((children_t*)&m_children);
+	}
+
+	const auto& click() const noexcept {
+		return *std::launder((click_t*)&m_click);
+	}
+
+	const auto& hover_off() const noexcept {
+		return *std::launder((children_t*)&m_children);
+	}
+
+	const auto& css_properties() const noexcept {
+		return *std::launder((css_t*)&m_css_properties);
+	}
+
+	alignas(children_t) std::array<std::byte, sizeof(children_t)> m_children;
+	alignas(hover_t)std::array<std::byte, sizeof(hover_t)> m_hover;
+	alignas(click_t)std::array<std::byte, sizeof(click_t)> m_click;
+	alignas(hover_off_t)std::array<std::byte, sizeof(hover_off_t)> m_hover_off;
+	alignas(css_t)std::array<std::byte, sizeof(css_t)> m_css_properties;
 };
+
+template<typename... T>
+struct branch { };
 
 
 template<typename T>
 struct html_doc {
 	draw_stuff_result draw(sf::RenderWindow& window, const ui_stuff thing) const {
-		css_properties properties;
+		css_properties_stack properties;
 	}
 
 
@@ -679,6 +755,6 @@ private:
 };
 
 
-void testlanda() {
-	auto y = css_stuff().display(display_type::block).width(500).display(display_type::grid).height(203);
+inline void testlanda() {
+	auto y = css_stuff().display(display_type::block).width(pixel(500)).display(display_type::grid).height(pixel(203));
 }

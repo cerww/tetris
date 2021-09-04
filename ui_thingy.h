@@ -475,7 +475,7 @@ private:
 		}
 
 		int request_width(int parent_width, int parent_height) override {
-			return m_me->request_width(parent_width,parent_height);
+			return m_me->request_width(parent_width, parent_height);
 		}
 
 		std::optional<std::pair<int, int>> set_location(int parent_width, int parent_height, int x, int y, int width_given, int height_given, int width_requested) override {
@@ -493,7 +493,7 @@ private:
 		::display_type display_type() const noexcept override {
 			return m_me->display_type();
 		}
-		
+
 		void move_to(void* ptr) override {
 			new(ptr) model_t(std::move(*this));
 		}
@@ -518,23 +518,25 @@ template<typename T>
 concept element_land = requires(T t)
 {
 	{ t.draw(std::declval<sf::RenderWindow>()) };
-	{ t.request_width(1, 1) }->std::same_as<std::optional<int>>;
+	{ t.request_width(1, 1) }->std::same_as<int>;
 	{ t.update(std::declval<event_handler_t>()) };
 };
 
 struct text_node {
-	draw_stuff_result draw(sf::RenderWindow& window, const ui_stuff thing) const {
-		return {};
-	}
-
-	draw_stuff_result draw(sf::RenderWindow& window, const ui_stuff thing, css_properties_stack& properties) const {
-		return {};
-		//return m_me.draw(window, thing);		
-	}
+	
 
 	void update(event_handler_t& e) const {
 		//do nothing
 	}
+
+	int request_width(int,int) {
+		return 0;
+	}
+
+	void draw(sf::RenderWindow& window) {
+		//;-;
+	}
+	
 
 private:
 	std::string m_text;
@@ -592,7 +594,7 @@ auto make_data_stuff(typelist<F, Ts...> rest, typelist<children...>, typelist<ho
 			return element_data_types<std::tuple<children...>, std::tuple<hover...>, std::tuple<click...>, std::tuple<hover_off...>,
 									  decltype(combine_css_f::combine_with(std::declval<css>(), std::declval<F>()))>();
 		} else if constexpr (std::convertible_to<F, std::string>) {
-			return element_data_types<std::tuple<children..., F>, std::tuple<hover...>, std::tuple<click...>, std::tuple<hover_off...>, css>();
+			return element_data_types<std::tuple<children..., text_node>, std::tuple<hover...>, std::tuple<click...>, std::tuple<hover_off...>, css>();
 		} else if constexpr (is_specialization<F, on_click>::value) {
 			return element_data_types<std::tuple<children...>, std::tuple<hover...>, std::tuple<click..., F>, std::tuple<hover_off...>, css>();
 		} else if constexpr (is_specialization<F, on_mouseoff>::value) {
@@ -609,7 +611,7 @@ auto make_data_stuff(typelist<F, Ts...> rest, typelist<children...>, typelist<ho
 			return make_data_stuff(typelist<Ts...>(), typelist<children...>(), typelist<hover...>(), typelist<click...>(), typelist<hover_off...>(),
 								   typelist<decltype(combine_css_f::combine_with(std::declval<css>(), std::declval<F>()))>());
 		} else if constexpr (std::convertible_to<F, std::string>) {
-			return make_data_stuff(typelist<Ts...>(), typelist<children..., F>(), typelist<hover...>(), typelist<click...>(), typelist<hover_off...>(), typelist<css...>());
+			return make_data_stuff(typelist<Ts...>(), typelist<children..., text_node>(), typelist<hover...>(), typelist<click...>(), typelist<hover_off...>(), typelist<css...>());
 		} else if constexpr (is_specialization<F, on_click>::value) {
 			return make_data_stuff(typelist<Ts...>(), typelist<children...>(), typelist<hover...>(), typelist<click..., F>(), typelist<hover_off...>(), typelist<css...>());
 		} else if constexpr (is_specialization<F, on_mouseoff>::value) {
@@ -635,19 +637,23 @@ struct element_node {
 		*/
 	}
 
-	//why optional?
 	int request_width(int parent_width, int parent_height) {
 		if (m_css_properties.get_display() == display_type::inline_) {
-			//sum width of children?
-			return 0;
+			return compute_wanted_width(parent_width, parent_height);
 		}
 		if (m_css_properties.get_display() == display_type::inline_block) {
 			const auto width = m_css_properties.get_width(parent_width);
 			if (width == auto_()) {
-
 				const auto max_width = calculate_value(m_css_properties.get_max_width(parent_width), parent_width);
-				//const auto total_widths = sum widths;
-			} else { }
+				const auto min_width = calculate_width_value(m_css_properties.get_min_width(parent_width), parent_width);
+				const auto total_width = compute_wanted_width(parent_width,parent_height);
+				return std::clamp(total_width, min_width.value_or(0), max_width.value_or(500000000));
+			} else {
+				const auto width_pixels = calculate_width_value(width, parent_width);
+				const auto max_width = calculate_value(m_css_properties.get_max_width(parent_width), parent_width);
+				const auto min_width = calculate_width_value(m_css_properties.get_min_width(parent_width), parent_width);
+				return std::clamp(width_pixels.value(), min_width.value_or(0), max_width.value_or(500000000));
+			}
 		}
 
 		if (m_css_properties.get_display() == display_type::block || m_css_properties.get_display() == display_type::grid) {
@@ -656,7 +662,9 @@ struct element_node {
 			const auto max_width = calculate_width_value(m_css_properties.get_max_width(parent_width), parent_width);
 
 			return std::clamp(width.value(), min_width.value_or(0), max_width.value_or(500000000));
-		} else {
+		} else if (m_css_properties.get_display() == display_type::none){
+			return 0;
+		}else {
 			return 0;
 		}
 	}
@@ -670,7 +678,12 @@ struct element_node {
 		return std::nullopt;
 	}
 
-	const auto& children() const noexcept {
+	std::vector<element_node_ref> children() const noexcept {
+		
+		return {};
+	}
+
+	const auto& children2() const noexcept {
 		return *std::launder((children_t*)&m_children);
 	}
 
@@ -701,7 +714,36 @@ private:
 		}
 	}
 
-	int compute_wanted_width() { }
+	int compute_wanted_width(int parent_width,int parent_height) {
+		int current_iter_width = 0;
+		int current_max_width = 0;
+		
+		const auto do_thing = [&](const auto& me,const auto& node) {
+			if(node.display_type() == display_type::contents) {
+				if constexpr (requires  { {node.children2()};}) {
+					std::apply([&](auto&&... child) {
+						(me(me, child),...);
+					},node.children2());
+				}else {
+					//node.children();
+					const auto childrenland = node.children();
+					for(const auto& child: childrenland) {
+						me(me, child);
+					}
+				}
+			}else if(is_inline(node.display_type())){
+				current_iter_width += node.request_width(parent_width,parent_height);
+			}else {//is_block
+				current_max_width = std::max(std::exchange(current_iter_width, 0), std::max(current_max_width, node.request_width(parent_width, parent_height)));
+			}
+		};
+
+		std::apply([&](auto&&... wat) {
+			(do_thing(do_thing, wat), ...);
+		},childrens());
+		
+		return std::max(current_iter_width, current_max_width);
+	}
 
 	bool m_is_hover = false;
 	bool m_is_active = false;
@@ -715,7 +757,7 @@ private:
 		return *std::launder((hover_t*)&m_hover);
 	}
 
-	auto& children() noexcept {
+	auto& childrens() noexcept {
 		return *std::launder((children_t*)&m_children);
 	}
 
@@ -736,6 +778,7 @@ private:
 	alignas(click_t)std::array<std::byte, sizeof(click_t)> m_click;
 	alignas(hover_off_t)std::array<std::byte, sizeof(hover_off_t)> m_hover_off;
 	alignas(css_t)std::array<std::byte, sizeof(css_t)> m_css_properties;
+	
 };
 
 template<typename... T>

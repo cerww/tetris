@@ -88,6 +88,8 @@ private:
 
 };
 
+
+
 inline std::optional<screen_thingy> custom_bag_game_screen_prev_screen::update(event_handler_t& event_handler, game_data& settings) {
 	//start button
 

@@ -161,14 +161,18 @@ constexpr bool operator==(std::convertible_to<pixel_percent_auto_fr> auto a, std
 	return pixel_percent_auto_fr(a) == pixel_percent_auto_fr(b);
 }
 
-enum struct display_type :int8_t {
-	inline_,
+enum struct display_type :uint8_t {
+	inline_ = (1 << 7),
 	block,
 	grid,
 	inline_block,
 	none,
 	contents
 };
+
+constexpr bool is_inline(display_type d)noexcept {
+	return d == display_type::inline_ || d == display_type::inline_block;
+}
 
 struct default_land {};
 

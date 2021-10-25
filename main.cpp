@@ -75,7 +75,7 @@ int main() {
 			.soft_drop_multiplier = 50
 		},
 		ai_settings{
-			.piece_delay = 666ms
+			.piece_delay = 588888888ms
 		},
 		executor.get_executor()
 

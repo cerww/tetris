@@ -134,7 +134,7 @@ struct flatstacking_ai {
 
 				if constexpr (print_stuff) {
 					++watland;
-					if (watland % 100 == 0) {
+					if (false && watland % 100 == 0) {
 						if (potatoland <= 3000 && potatoland >= 2800) {
 							std::ofstream file("bonkland" + std::to_string(potatoland) + ".txt", std::ios::out);
 							for (int y = 31; y >= 0; --y) {
@@ -804,7 +804,7 @@ struct flatstacking_ai {
 	int covered_squared_inter = -8;
 
 
-	bool do_tspins = true;
+	bool do_tspins = false;
 	/*
 	std::vector<double> branch_factor_multiplier = {
 		0.7,//

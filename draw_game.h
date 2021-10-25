@@ -4,7 +4,7 @@
 #include "tetris_stuff.h"
 #include <range/v3/all.hpp>
 
-sf::Color piece_color(tetris_piece p) {
+inline sf::Color piece_color(tetris_piece p) {
 	static const auto colors = std::array{
 		sf::Color(255, 165, 0),
 		sf::Color::Blue,
@@ -17,12 +17,12 @@ sf::Color piece_color(tetris_piece p) {
 	return colors[(int)p];
 }
 
-sf::Color ghost_piece_color(tetris_piece p) {
+inline sf::Color ghost_piece_color(tetris_piece p) {
 	const auto a = piece_color(p);
 	return sf::Color(a.r, a.g, a.b, 100);
 }
 
-sf::Color mino_to_color(tetris_block mino_color) {
+inline sf::Color mino_to_color(tetris_block mino_color) {
 	static const auto colors = std::array{
 		sf::Color(220, 220, 220),
 		sf::Color(255, 165, 0),
@@ -37,7 +37,7 @@ sf::Color mino_to_color(tetris_block mino_color) {
 	return colors[(int)mino_color];
 }
 
-void draw_piece(sf::RenderWindow& window, std::span<const std::pair<int8_t, int8_t>> offsets, int x, int y, sf::Color color, double scale = 1.0) {
+inline void draw_piece(sf::RenderWindow& window, std::span<const std::pair<int8_t, int8_t>> offsets, int x, int y, sf::Color color, double scale = 1.0) {
 	for (const auto piece : offsets) {
 		sf::RectangleShape block(sf::Vector2f(20, 20) * (float)scale);
 		block.setPosition(x + piece.first * 20.f * (float)scale, y - piece.second * 20.f * (float)scale);
@@ -48,7 +48,7 @@ void draw_piece(sf::RenderWindow& window, std::span<const std::pair<int8_t, int8
 	}
 }
 
-void draw_tetris_board(sf::RenderWindow& window, const tetris_game_update& stuff, int x, int y) {
+inline void draw_tetris_board(sf::RenderWindow& window, const tetris_game_update& stuff, int x, int y) {
 	constexpr int board_height = 400;
 	constexpr int board_width = 200;
 

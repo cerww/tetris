@@ -2,7 +2,7 @@
 #include "game_data.h"
 #include "sfml_event_handler_extensions.h"
 
-using event_handler_t = sfml_event_handler<track_hold_times<>, track_mouse_pos>;
+using event_handler_t = sfml_event_handler<track_hold_times<>, track_mouse_pos,track_text>;
 
 struct screen_thingy;
 

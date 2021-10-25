@@ -624,7 +624,28 @@ private:
 	std::array<std::chrono::steady_clock::time_point, frame_cache_size> m_frames_starts = {};
 };
 
+struct track_text {
+
+	void on_poll_start() {
+		m_chars_pressed_this_update.clear();
+	}
+	
+	void on_text(sf::Event::TextEvent a) {
+		m_chars_pressed_this_update.push_back((char)a.unicode);
+	}
+
+	std::span<const char> chars_pressed()const noexcept {
+		return m_chars_pressed_this_update;
+	}
+	
+private:
+	std::vector<char> m_chars_pressed_this_update;
+};
+
 static_assert(has_on_poll_stop<fps_tracker<>>::value);
+
+
+
 
 
 

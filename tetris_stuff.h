@@ -494,6 +494,7 @@ struct tetris_game {
 
 	void generate_new_pieces(std::mt19937& engine) {
 		std::array<tetris_piece, 7> pieces = {tetris_piece::I, tetris_piece::J, tetris_piece::T, tetris_piece::Z, tetris_piece::S, tetris_piece::L, tetris_piece::O};
+		//std::array<tetris_piece, 7> pieces = { tetris_piece::T, tetris_piece::T, tetris_piece::T, tetris_piece::Z, tetris_piece::S, tetris_piece::L, tetris_piece::O };
 		std::ranges::shuffle(pieces, engine);
 		ranges::push_back(preview_pieces, pieces);
 	}

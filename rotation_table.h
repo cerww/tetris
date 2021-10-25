@@ -1081,6 +1081,6 @@ static constexpr std::array<std::array<std::array<std::pair<int8_t, int8_t>, 5>,
 
 constexpr auto wat = sizeof(rotation_table);
 
-std::array<std::pair<int8_t, int8_t>, 4> rotations_offsets_to_test(int piece, int orientation, int new_orientation) {
+inline std::array<std::pair<int8_t, int8_t>, 4> rotations_offsets_to_test(int piece, int orientation, int new_orientation) {
 	return rotation_table[piece][orientation][new_orientation];
 }

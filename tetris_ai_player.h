@@ -15,6 +15,7 @@
 
 struct ai_settings {
 	std::chrono::milliseconds piece_delay = 1000ms;
+	bool use_tspins = true;
 };
 
 struct tetris_ai_player :ref_counted {
@@ -26,6 +27,7 @@ struct tetris_ai_player :ref_counted {
 			return r();
 		})()),
 		m_settings(std::move(settings)) {
+		m_ai->do_tspins = m_settings.use_tspins;
 
 		while (m_game.preview_pieces.size() <= 7) {
 			m_game.generate_new_pieces(m_random_engine);
@@ -33,7 +35,7 @@ struct tetris_ai_player :ref_counted {
 		//m_game.try_spawn_new_piece();
 		m_game.current_piece = tetris_piece::no_piece;
 	}
-
+	
 	~tetris_ai_player() {
 		stop_doing_stuff();
 		//keep vars alive while it updates vars, shuold be like just copying bytes here
@@ -49,7 +51,8 @@ struct tetris_ai_player :ref_counted {
 			std::exchange(m_garbage_sent_since_last_update, 0),
 			m_garbage_calculator.current_combo,
 			std::accumulate(m_garbage_recieving.begin(), m_garbage_recieving.end(), 0),
-			m_dead
+			m_dead,
+			std::exchange(m_lines_cleared_since_last_update,0)
 		};
 	}
 
@@ -80,6 +83,7 @@ struct tetris_ai_player :ref_counted {
 				m_has_next = false;
 				if (m_lines_cleared) {
 					m_time_till_next_piece += 000ms;
+					m_lines_cleared_since_last_update += m_lines_cleared;
 				}
 				if (!m_ai_is_running) {
 					m_ai_is_running = true;
@@ -190,4 +194,7 @@ private:
 	bool m_dead_next = false;
 	int m_lines_cleared = 0;
 	int m_game_number_next = 0;
+
+	int m_lines_cleared_since_last_update = 0;
+
 };

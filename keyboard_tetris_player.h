@@ -27,7 +27,8 @@ struct tetris_game_keyboard_player {
 			std::exchange(m_garbage_sent_since_last_update, 0),
 			m_garbage_calculator.current_combo,
 			std::accumulate(m_garbage_recieved.begin(), m_garbage_recieved.end(), 0),
-			m_is_dead
+			m_is_dead,
+			std::exchange(m_lines_cleared_last_update,0)
 		};
 	}
 
@@ -165,6 +166,7 @@ struct tetris_game_keyboard_player {
 					next_game_state.generate_new_pieces(m_random_engine);
 				}
 				garbage_sent_this_update += on_piece_lock(lines_cleared.value(), m_last_rotation, next_game_state);
+				m_lines_cleared_last_update = lines_cleared.value();
 			}
 		}
 		if (!next_game_state.can_move_piece_down() && m_max_soft_dropping_time <= 0s) {
@@ -252,6 +254,7 @@ private:
 	tetris_game_settings m_settings;
 	tetris_game m_game = {};
 	int m_garbage_sent_since_last_update = 0;
+	int m_lines_cleared_last_update = 0;
 
 	bool m_can_swap_held_piece = true;
 	bool m_is_dead = false;

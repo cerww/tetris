@@ -3,11 +3,11 @@
 
 
 template<typename T>
-concept unpause_policy = std::regular_invocable<T, event_handler_t&, game_data&> && std::same_as<std::invoke_result_t<T, event_handler_t&, game_data&>, bool>;
+concept unpause_policy = std::regular_invocable<T, event_handler_t&, game_keybinds&> && std::same_as<std::invoke_result_t<T, event_handler_t&, game_keybinds&>, bool>;
 
 
 template<typename T>
-concept pause_policy = std::regular_invocable<T, event_handler_t&, game_data&> && std::same_as<std::invoke_result_t<T, event_handler_t&, game_data&>, bool>;
+concept pause_policy = std::regular_invocable<T, event_handler_t&, game_keybinds&> && std::same_as<std::invoke_result_t<T, event_handler_t&, game_keybinds&>, bool>;
 
 template<typename T,unpause_policy... Ps>
 struct pause_screen {
@@ -16,7 +16,7 @@ struct pause_screen {
 	pause_screen(T thing, Ps ... ps):
 		paused_screen(std::move(thing)), unpause_policies(std::move(ps)...) { }
 
-	std::optional<screen_thingy> update(event_handler_t& event_handler, game_data& stuff) {
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& stuff) {
 		if (std::apply([&](auto&... policy) {
 			return (std::invoke(policy, event_handler, stuff) || ...);
 			}, unpause_policies)) {
@@ -39,7 +39,7 @@ struct not_pause_screen {
 		pause_policies(std::move(ps)...) {}
 
 
-	std::optional<screen_thingy> update(event_handler_t& event_handler, game_data& stuff) {
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& stuff) {
 		if(std::apply([&](auto&... policy) {
 			return (std::invoke(policy,event_handler,stuff) || ...);
 		},pause_policies)) {

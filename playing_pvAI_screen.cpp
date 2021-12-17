@@ -3,10 +3,10 @@
 
 
 
-std::optional<screen_thingy> playing_pVai_state::update(event_handler_t& event_handler, game_data& settings) {
+std::optional<screen_thingy> playing_pVai_state::update(event_handler_t& event_handler, game_keybinds& settings) {
 
 	if(m_back_button.update(event_handler,event_handler.time_since_last_poll())) {
-		return start_screen();
+		return start_screen(game_data);
 	}
 	
 	auto& window = event_handler.window();
@@ -60,7 +60,7 @@ std::optional<screen_thingy> playing_pVai_state::update(event_handler_t& event_h
 		draw_tetris_board(window, game_update, 200, 600);
 		draw_tetris_board(window, ai_game_update, 800, 600);
 
-		return dead_state(std::move(player_ptr), std::move(ai_player_ptr));
+		return dead_state(std::move(player_ptr), std::move(ai_player_ptr),game_data);
 	}
 	else {
 		if (game_update.garbage_sent) {

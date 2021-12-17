@@ -7,7 +7,7 @@
 #include "tetris_stuff.h"
 
 
-struct game_data {
+struct game_keybinds {
 	std::vector<std::pair<action, sf::Keyboard::Key>> keybinds = {
 		{action::move_left, sf::Keyboard::Left},
 		{action::soft_drop, sf::Keyboard::Down},
@@ -36,6 +36,7 @@ struct game_data {
 
 
 };
+
 
 
 

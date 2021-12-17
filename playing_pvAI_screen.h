@@ -12,15 +12,25 @@
 #include "tetris_stuff.h"
 #include "game_data.h"
 #include "buttonland.h"
+#include "all_game_data.h"
 
 
 struct dead_state {
+	/*
 	dead_state(std::unique_ptr<tetris_game_keyboard_player> player, std::unique_ptr<tetris_ai_player> ai_player) :
 		player_ptr(std::move(player)),
 		ai_player_ptr(std::move(ai_player)) {}
+	*/
+
+	dead_state(std::unique_ptr<tetris_game_keyboard_player> player, std::unique_ptr<tetris_ai_player> ai_player, all_game_data& t_game_data) :
+		player_ptr(std::move(player)),
+		ai_player_ptr(std::move(ai_player)),
+		game_data(t_game_data)	{}
 
 
-	std::optional<screen_thingy> update(event_handler_t& event_handler, game_data& settings);
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& settings);
+
+	all_game_data& game_data;
 
 	std::chrono::milliseconds time_till_playing = 2s;
 
@@ -31,20 +41,30 @@ struct dead_state {
 
 
 struct playing_pVai_state {
-	playing_pVai_state(tetris_game_settings player_settings, ai_settings ai_setting, boost::asio::any_io_executor executor) :
-		player_ptr(std::make_unique<tetris_game_keyboard_player>(player_settings)),
-		ai_player_ptr(std::make_unique<tetris_ai_player>(executor, ai_setting)) {
+	playing_pVai_state(all_game_data& t_data, boost::asio::any_io_executor executor) :
+		player_ptr(std::make_unique<tetris_game_keyboard_player>(t_data.game_settings)),
+		ai_player_ptr(std::make_unique<tetris_ai_player>(std::move(executor), t_data.ai_game_settings)),
+		game_data(t_data)
+	{
+
 		player_ptr->start_doing_stuff_now();
 		ai_player_ptr->start_doing_stuff();
+		sf::Text back_button_text;
+		back_button_text.setFont(t_data.default_font);
+		back_button_text.setString("Back");
+		back_button_text.setFillColor(sf::Color::Red);
+		m_back_button.set_text(std::move(back_button_text));
+
 	}
 
-	std::optional<screen_thingy> update(event_handler_t& event_handler, game_data& settings);
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& settings);
 
 
 	std::array<bool, (int)action::size> actions = {};
 
 	std::unique_ptr<tetris_game_keyboard_player> player_ptr;
 	std::unique_ptr<tetris_ai_player> ai_player_ptr;
+	all_game_data& game_data;
 
 	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_player;
 	std::vector<std::pair<int, std::chrono::milliseconds>> garbage_to_ai;
@@ -53,7 +73,7 @@ struct playing_pVai_state {
 	
 };
 
-inline std::optional<screen_thingy> dead_state::update(event_handler_t& event_handler, game_data& settings) {
+inline std::optional<screen_thingy> dead_state::update(event_handler_t& event_handler, game_keybinds& settings) {
 	auto& window = event_handler.window();
 	auto& player = *player_ptr;
 	auto& ai_player = *ai_player_ptr;
@@ -66,7 +86,7 @@ inline std::optional<screen_thingy> dead_state::update(event_handler_t& event_ha
 
 	if (time_till_playing <= 0s) {
 		time_till_playing = 2s;
-		return screen_thingy(playing_pVai_state(player.settings(), ai_player.settings(), ai_player.get_executor()));
+		return screen_thingy(playing_pVai_state(game_data, ai_player.get_executor()));
 	}
 	return std::nullopt;
 }

@@ -15,6 +15,7 @@
 #include "screen.h"
 #include "draw_game.h"
 #include "playing_pvAI_screen.h"
+#include "start_screen.h"
 #include "ui_thingy.h"
 
 enum struct game_state {
@@ -60,13 +61,13 @@ int main() {
 
 	event_handler_t event_handler(window);
 
-	game_data settings;
+	game_keybinds settings;
 
 	window.setFramerateLimit(60);
 	static constexpr int awasdasd = sizeof(track_hold_times<>);
 
-	screen_thingy game_state = playing_pVai_state(
-		tetris_game_settings{
+	all_game_data game_data{		
+		.game_settings = tetris_game_settings{
 			.das_time = 50ms,
 			.arr_time = 8ms,
 			.delay_between_drops = 5ms,
@@ -74,12 +75,15 @@ int main() {
 			.max_soft_dropping_time = 5s,
 			.soft_drop_multiplier = 50
 		},
-		ai_settings{
-			.piece_delay = 588888888ms
-		},
-		executor.get_executor()
+		.ai_game_settings = ai_settings{.piece_delay = 1000ms},
+	};
+	
+	game_data.default_font.loadFromFile("arial.ttf");
 
-	);
+	game_data.ioc = &executor;
+
+
+	screen_thingy game_state = start_screen(game_data);
 
 	while (window.isOpen()) {
 		event_handler.poll_stuff();
@@ -87,7 +91,6 @@ int main() {
 		auto next_state = game_state.update(event_handler, settings);
 		if (next_state.has_value()) {
 			game_state = std::move(*next_state);
-
 		}
 		
 		window.display();

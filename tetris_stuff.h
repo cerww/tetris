@@ -616,6 +616,7 @@ struct tetris_game_update {
 	int current_combo = -1;
 	int garbage_recieving = 0;
 	bool died = false;
+	int lines_cleared = 0;
 };
 
 enum struct action {

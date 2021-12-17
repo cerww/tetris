@@ -7,7 +7,7 @@ using event_handler_t = sfml_event_handler<track_hold_times<>, track_mouse_pos,t
 struct screen_thingy;
 
 template<typename T>
-concept scene = requires(T t, event_handler_t & a, game_data& b)
+concept scene = requires(T t, event_handler_t & a, game_keybinds& b)
 {
 	{ t.update(a, b) }->std::same_as<std::optional<screen_thingy>>;
 };
@@ -56,7 +56,7 @@ struct screen_thingy {
 	}
 
 
-	std::optional<screen_thingy> update(event_handler_t& a, game_data& b) {
+	std::optional<screen_thingy> update(event_handler_t& a, game_keybinds& b) {
 		std::optional<screen_thingy> ret;
 		me().update(a, b, ret);
 		return ret;
@@ -67,7 +67,7 @@ private:
 	struct concept_ {
 		virtual ~concept_() = default;
 
-		virtual void update(event_handler_t&, game_data&, std::optional<screen_thingy>& out) = 0;
+		virtual void update(event_handler_t&, game_keybinds&, std::optional<screen_thingy>& out) = 0;
 		virtual void move_to(void*) = 0;
 		virtual void copy_to(void*) const = 0;
 	};
@@ -78,7 +78,7 @@ private:
 		model_t(T thing):
 			m_me(std::make_unique<T>(std::move(thing))) { }
 
-		void update(event_handler_t& a, game_data& b, std::optional<screen_thingy>& out) override {
+		void update(event_handler_t& a, game_keybinds& b, std::optional<screen_thingy>& out) override {
 			out = m_me->update(a, b);
 		}
 
@@ -101,7 +101,7 @@ private:
 		model_t(T thing) :
 			m_me(std::move(thing)) { }
 
-		void update(event_handler_t& a, game_data& b, std::optional<screen_thingy>& out) override {
+		void update(event_handler_t& a, game_keybinds& b, std::optional<screen_thingy>& out) override {
 			out = m_me.update(a, b);
 		}
 
@@ -134,7 +134,7 @@ struct multiple_screens {
 	multiple_screens(Ts... things) :inner_screens(std::move(things)...) {}
 
 
-	std::optional<screen_thingy> update(event_handler_t& event_handler, game_data& stuff) {
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& stuff) {
 		return std::apply([&](auto&... wat) {
 			return update_impl(event_handler, stuff, wat...);
 		},inner_screens);
@@ -142,7 +142,7 @@ struct multiple_screens {
 	}
 
 	template<typename F,typename... R>
-	std::optional<screen_thingy> update_impl(event_handler_t& event_handler, game_data& stuff,F& first,R&... r) {
+	std::optional<screen_thingy> update_impl(event_handler_t& event_handler, game_keybinds& stuff,F& first,R&... r) {
 		const auto res = first.update(event_handler, stuff);
 		if(res) {
 			return res;

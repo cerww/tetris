@@ -6,16 +6,30 @@
 struct custom_bag_game_screen_prev_screen {
 	explicit custom_bag_game_screen_prev_screen(tetris_game_settings player_settings, std::vector<tetris_piece> bag):
 		m_player_settings(std::move(player_settings)),
-		m_bag(std::move(bag)) { }
+		m_bag(std::move(bag)) { 
+
+		for (int i = 0; i < m_bag.size(); ++i) {
+			auto& [top_button,bot_button] = m_buttons.emplace_back(boring_button(), boring_button());
+			top_button.set_on_press([this,i]() {
+				m_bag[i] = (tetris_piece)(((int)m_bag[i] + 1) % 7);
+			});			
+
+			bot_button.set_on_press([this, i]() {
+				m_bag[i] = (tetris_piece)(((int)m_bag[i] - 1 + 7) % 7);
+			});
+
+		}
+	
+	}
 
 	explicit custom_bag_game_screen_prev_screen(tetris_game_settings player_settings) :
 		m_player_settings(std::move(player_settings)){ }
 
-	std::optional<screen_thingy> update(event_handler_t& event_handler, game_data& settings);
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& settings);
 private:
 	tetris_game_settings m_player_settings;
 	std::vector<tetris_piece> m_bag = { tetris_piece::I,tetris_piece::L,tetris_piece::J,tetris_piece::O,tetris_piece::Z,tetris_piece::S,tetris_piece::T };
-	
+	std::vector<std::pair<boring_button, boring_button>> m_buttons;
 };
 
 
@@ -23,7 +37,7 @@ private:
 struct custom_bag_game_screen {
 	explicit custom_bag_game_screen(tetris_game_settings player_settings, std::vector<tetris_piece> bag) { }
 
-	std::optional<screen_thingy> update(event_handler_t& event_handler, game_data& settings) {
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& settings) {
 		auto& window = event_handler.window();
 		auto& player = *player_ptr;
 
@@ -90,7 +104,7 @@ private:
 
 
 
-inline std::optional<screen_thingy> custom_bag_game_screen_prev_screen::update(event_handler_t& event_handler, game_data& settings) {
+inline std::optional<screen_thingy> custom_bag_game_screen_prev_screen::update(event_handler_t& event_handler, game_keybinds& settings) {
 	//start button
 
 

@@ -39,6 +39,7 @@ struct start_screen {
 		settings_text.setFont(t_data.default_font);
 		m_settings_button.set_text(std::move(settings_text));
 
+		m_custom_bag_button.set_text("custom bag",m_data.default_font,sf::Color::Red);
 
 	}
 
@@ -52,6 +53,7 @@ private:
 	boring_button m_solo_button = boring_button(400,440,200,100);
 	boring_button m_watch_ai_button = boring_button(400,560,200,100);
 	boring_button m_settings_button = boring_button(700,200,200,100);
+	boring_button m_custom_bag_button = boring_button(700,320,200,100);
 
 	
 };

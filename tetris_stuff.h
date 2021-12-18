@@ -118,6 +118,8 @@ struct tetris_board {
 
 };
 
+
+//[piece][orientation]
 constexpr static std::array<std::array<std::array<std::pair<int8_t, int8_t>, 4>, 4>, 7> piece_offsets = {
 	{
 		{

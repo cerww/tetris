@@ -129,7 +129,11 @@ struct tetris_game_keyboard_player {
 			m_can_swap_held_piece = false;
 			next_game_state.swap_held_piece();
 			if (next_game_state.preview_pieces.size() <= 6) {
-				next_game_state.generate_new_pieces(m_random_engine);
+				if (m_custom_bag) {
+					next_game_state.generate_new_pieces(m_random_engine, m_custom_bag.value());
+				} else {
+					next_game_state.generate_new_pieces(m_random_engine);
+				}
 			}
 		}
 
@@ -138,7 +142,11 @@ struct tetris_game_keyboard_player {
 		if (update.new_actions_pressed[(int)action::hard_drop]) {
 			const auto lines_cleared = next_game_state.hard_drop();
 			if (next_game_state.preview_pieces.size() <= 6) {
-				next_game_state.generate_new_pieces(m_random_engine);
+				if (m_custom_bag) {
+					next_game_state.generate_new_pieces(m_random_engine, m_custom_bag.value());
+				} else {
+					next_game_state.generate_new_pieces(m_random_engine);
+				}
 			}
 			garbage_sent_this_update = on_piece_lock(lines_cleared, m_last_rotation, next_game_state);
 		} else if (update.actions_held[(int)action::soft_drop]) {
@@ -163,7 +171,11 @@ struct tetris_game_keyboard_player {
 			const auto lines_cleared = next_game_state.drop_piece_1();
 			if (lines_cleared.has_value()) {
 				if (next_game_state.preview_pieces.size() <= 6) {
-					next_game_state.generate_new_pieces(m_random_engine);
+					if (m_custom_bag) {
+						next_game_state.generate_new_pieces(m_random_engine, m_custom_bag.value());
+					} else {
+						next_game_state.generate_new_pieces(m_random_engine);
+					}
 				}
 				garbage_sent_this_update += on_piece_lock(lines_cleared.value(), m_last_rotation, next_game_state);
 				m_lines_cleared_last_update = lines_cleared.value();
@@ -172,7 +184,11 @@ struct tetris_game_keyboard_player {
 		if (!next_game_state.can_move_piece_down() && m_max_soft_dropping_time <= 0s) {
 			const auto lines_cleared = next_game_state.hard_drop();
 			if (next_game_state.preview_pieces.size() <= 6) {
-				next_game_state.generate_new_pieces(m_random_engine);
+				if (m_custom_bag) {
+					next_game_state.generate_new_pieces(m_random_engine, m_custom_bag.value());
+				} else {
+					next_game_state.generate_new_pieces(m_random_engine);
+				}
 			}
 			garbage_sent_this_update = on_piece_lock(lines_cleared, m_last_rotation, next_game_state);
 		}
@@ -210,7 +226,7 @@ struct tetris_game_keyboard_player {
 private:
 	int on_piece_lock(int lines_cleared, rotate_info tspin_stuff, tetris_game& state) {
 		m_can_swap_held_piece = true;
-		auto lines_sent = m_garbage_calculator(lines_cleared, tspin_stuff);
+		auto lines_sent = m_garbage_calculator(lines_cleared, tspin_stuff,state.board.minos == decltype(state.board.minos){});
 		while (lines_sent && !m_garbage_recieved.empty()) {
 			const auto amount_to_subtract = std::min(lines_sent, (int)m_garbage_recieved.back());
 			m_garbage_recieved.back() -= amount_to_subtract;

@@ -131,6 +131,13 @@ struct boring_button {
 		m_text = std::move(t);		
 	}
 
+	void set_text(std::string s,sf::Font& f,sf::Color c) {
+		m_text.emplace();
+		m_text->setFillColor(c);
+		m_text->setFont(f);
+		m_text->setString(s);
+	}
+
 private:
 	std::function<void()> m_on_press;
 	bool m_pressed_not_over = false;

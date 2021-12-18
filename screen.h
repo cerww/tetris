@@ -161,6 +161,30 @@ struct multiple_screens {
 
 
 
+struct coroutine_screen {
+	struct coroutine_traits {
+		
+	};
 
 
+	void update() {
+		
+	}
+private:
 
+};
+
+
+/*
+
+coroutine_screen fn_name(args){
+	while(true){
+		auto&[event_handler,settings] = co_await thing;
+		everything
+		draw
+		co_yield next screen 
+	}
+	co_return;
+}
+
+ */

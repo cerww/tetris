@@ -4,6 +4,49 @@
 #include "screen.h"
 #include "start_screen.h"
 
+namespace settings_watlandworld {
+	constexpr auto add = [](auto a) {
+		return [b = a](auto& c) {
+			c += b;
+		};
+	};
+
+	constexpr auto subtract = [](auto a) {
+		return [b = a](auto& c) {
+			c -= b;
+		};
+	};
+
+	constexpr auto inverse_subtract = [](double a) {
+		return[b = a]<typename U>(U & c) {
+			const auto wat = (int64_t)(1000 / (1000 / (double)c.count() - b));
+			c = U(wat);
+		};
+	};
+
+	constexpr auto inverse_add = [](double a) {
+		return[b = a]<typename U>(U & c) {
+			const auto wat = (int64_t)(1000 / (1000 / (double)c.count() + b));
+			c = U(wat);
+		};
+	};
+
+	constexpr auto toggle = [](bool& b) {b = !b; };
+}
+
+struct thing {
+	boring_button decrease_button;
+	boring_button increase_button;
+	sf::Text text;
+	int start_x = 0;
+	int start_y = 0;
+
+	std::function<std::string()> text_fn;
+
+	void draw(sf::RenderTarget& target) {
+		
+	}
+};
 
 struct settings_menu {
 	settings_menu(all_game_data& t_data) :
@@ -45,32 +88,8 @@ struct settings_menu {
 
 	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& settings) {
 		auto& window = event_handler.window();
-		const auto add = [](auto a) {
-			return [b = a](auto& c) {
-				c += b;
-			};
-		};
-
-		const auto subtract = [](auto a) {
-			return [b = a](auto& c) {
-				c -= b;
-			};
-		};
-
-		const auto inverse_subtract = [](double a) {
-			return [b = a]<typename U>(U& c) {
-				const auto wat = (int64_t)(1000 / (1000 / (double)c.count() - b));
-				c = U(wat);
-			};
-		};
-
-		const auto inverse_add = [](double a) {
-			return [b = a]<typename U>(U& c) {
-				const auto wat = (int64_t)(1000 / (1000 / (double)c.count() + b));
-				c = U(wat);
-			};
-		};
-
+		
+		using namespace settings_watlandworld;
 		if (m_back_button.update(event_handler, event_handler.time_since_last_poll())) {
 			return start_screen(m_data);
 		}
@@ -96,7 +115,7 @@ struct settings_menu {
 		} else if (m_sub_ai_speed2_button.update(event_handler, time_step)) {
 			do_thing(m_data.ai_game_settings.piece_delay, inverse_subtract(0.1), time_step);
 		} else if (m_toggle_ai_tspin.update(event_handler, time_step)) {
-			do_thing(m_data.ai_game_settings.use_tspins, [](bool& a) { a = !a; }, time_step);
+			do_thing(m_data.ai_game_settings.use_tspins, toggle, time_step);
 		} else {
 			m_button_pressed = false;
 			m_auto_repeat_click_time_left = m_init_auto_repeat_delay;

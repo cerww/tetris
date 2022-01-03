@@ -66,7 +66,8 @@ enum struct tetris_piece :int8_t {
 };
 
 struct tetris_board {
-	alignas(32) std::array<std::array<tetris_block, 32>, 10> minos = {};
+	std::array<std::array<tetris_block, 32>, 10> minos = {};
+	//alignas(32) std::array<std::array<tetris_block, 32>, 10> minos = {};
 
 	bool can_place_piece_on_board(int x, int y, std::span<const std::pair<int8_t, int8_t>> piece_offsets) const noexcept {
 		return std::ranges::all_of(piece_offsets, [&](std::pair<int, int> offset) {
@@ -614,6 +615,16 @@ constexpr int auwiwekjyhasjdasd = sizeof(tetris_game);
 
 struct tetris_game_update {
 	tetris_game game_state;
+	int garbage_sent = 0;
+	int current_combo = -1;
+	int garbage_recieving = 0;
+	bool died = false;
+	int lines_cleared = 0;
+};
+
+
+struct tetris_game_update2_ {
+	std::unique_ptr<tetris_game> game_state;
 	int garbage_sent = 0;
 	int current_combo = -1;
 	int garbage_recieving = 0;

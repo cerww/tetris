@@ -1,4 +1,6 @@
 #pragma once
+#include <coroutine>
+#include <iostream>
 #include "game_data.h"
 #include "sfml_event_handler_extensions.h"
 
@@ -159,21 +161,111 @@ struct multiple_screens {
 };
 
 
-
-
 struct coroutine_screen {
-	struct coroutine_traits {
-		
+	struct all_data_and_stuff {
+		std::coroutine_handle<> h;
+
+		event_handler_t* next_event_handler = nullptr;
+		game_keybinds* next_stuff = nullptr;
+
+		std::optional<std::optional<screen_thingy>> next_screen = std::optional<std::optional<screen_thingy>>(std::optional<screen_thingy>(std::nullopt));
+	};
+
+	struct promise_type {
+		promise_type() = default;
+		coroutine_screen get_return_object() noexcept {
+			stuff.h = std::coroutine_handle<promise_type>::from_promise(*this);
+			return coroutine_screen(&stuff);
+		}
+
+		std::suspend_never initial_suspend()const noexcept {
+			return {};
+		}
+
+		std::suspend_always final_suspend()const noexcept {
+			return {};
+		}
+
+		void unhandled_exception() noexcept{
+			//wat
+		}
+
+		void return_value(screen_thingy screen) {
+			stuff.next_screen.emplace(std::optional(std::move(screen)));
+		}
+
+		all_data_and_stuff stuff;
 	};
 
 
-	void update() {
-		
-	}
-private:
+	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& stuff) {
 
+		m_thing->next_event_handler = &event_handler;
+		m_thing->next_stuff = &stuff;
+
+		m_thing->h.resume();
+		m_thing->next_event_handler = nullptr;
+		m_thing->next_stuff = nullptr;
+		//std::cout << "b" << std::endl;
+
+		if(m_thing->next_screen.has_value()) {
+			auto ret = std::move(*m_thing->next_screen);
+			m_thing->next_screen = std::nullopt;
+			return ret;
+		}else {
+			return std::nullopt;
+			throw std::runtime_error("wat");
+		}
+	}
+
+	coroutine_screen(coroutine_screen&& other)noexcept:m_thing(std::exchange(other.m_thing,nullptr)) {}
+	
+	coroutine_screen& operator=(coroutine_screen&& other)noexcept {
+		if(this == &other) {
+			return *this;
+		}
+		if (m_thing) {
+			m_thing->h.destroy();
+		}
+		m_thing = std::exchange(other.m_thing, nullptr);
+
+		return *this;
+	}
+
+	~coroutine_screen() {
+		if (m_thing) {
+			m_thing->h.destroy();
+		}
+	}
+
+	coroutine_screen(const coroutine_screen&) = delete;
+	coroutine_screen& operator=(const coroutine_screen&) = delete;
+private:
+	
+	explicit coroutine_screen(all_data_and_stuff* a):m_thing(a) {
+
+	}
+
+	all_data_and_stuff* m_thing;
 };
 
+struct wait_for_next_update {
+	bool await_ready() {
+		return false;
+	}
+
+	void await_suspend(std::coroutine_handle<coroutine_screen::promise_type> h) {
+		m_data = &h.promise().stuff;
+	}
+
+	std::tuple<event_handler_t&, game_keybinds&> await_resume() {
+		return std::tie(*m_data->next_event_handler,*m_data->next_stuff);
+	}
+
+private:
+	const coroutine_screen::all_data_and_stuff* m_data = nullptr;
+
+};
 
 /*
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "forty_line_sprint_screen.h"
 #include "screen.h"
 #include "playing_pvAI_screen.h"
 #include "playing_solo.h"
@@ -30,6 +31,7 @@ struct custom_bag_game_screen_prev_screen {
 		//fix_buttons();
 		m_play_vs_ai_button.set_text("vs ai", m_data.default_font, sf::Color::Red);
 		m_play_solo_button.set_text("solo", m_data.default_font, sf::Color::Red);
+		m_40Lsprint_button.set_text("40L sprint", m_data.default_font, sf::Color::Red);
 	}
 
 	explicit custom_bag_game_screen_prev_screen(all_game_data& t_data) :
@@ -84,6 +86,7 @@ private:
 
 	boring_button m_play_vs_ai_button = boring_button(100,600,100,50);
 	boring_button m_play_solo_button = boring_button(220,600,100,50);
+	boring_button m_40Lsprint_button = boring_button(340,600,100,50);
 
 	bool m_buttons_need_to_be_fixed = true;
 	//std::array<int, 5000> wat = {};
@@ -173,9 +176,12 @@ inline std::optional<screen_thingy> custom_bag_game_screen_prev_screen::update(e
 		return playing_pVai_state(m_data, m_data.ioc->get_executor(), std::move(m_bag));
 	}else if(m_play_solo_button.update(event_handler,event_handler.time_since_last_poll())) {
 		return playing_solo_state(m_data,std::move(m_bag));
+	} else if (m_40Lsprint_button.update(event_handler, event_handler.time_since_last_poll())) {
+		return sprint_mode(m_data,40, std::move(m_bag));
 	}
+
 	m_add_button.update(event_handler, event_handler.time_since_last_poll());
-	m_remove_button.update(event_handler, event_handler.time_since_last_poll());
+	m_remove_button.update(event_handler, event_handler.time_since_last_poll());	
 
 	event_handler.window().clear(sf::Color(200, 200, 200));
 	for (int i = 0; i < m_bag.size(); ++i) {
@@ -194,6 +200,7 @@ inline std::optional<screen_thingy> custom_bag_game_screen_prev_screen::update(e
 
 	m_play_vs_ai_button.draw(event_handler.window());
 	m_play_solo_button.draw(event_handler.window());
+	m_40Lsprint_button.draw(event_handler.window());
 	
 	return std::nullopt;
 }

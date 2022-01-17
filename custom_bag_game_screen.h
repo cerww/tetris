@@ -32,6 +32,7 @@ struct custom_bag_game_screen_prev_screen {
 		m_play_vs_ai_button.set_text("vs ai", m_data.default_font, sf::Color::Red);
 		m_play_solo_button.set_text("solo", m_data.default_font, sf::Color::Red);
 		m_40Lsprint_button.set_text("40L sprint", m_data.default_font, sf::Color::Red);
+		m_cheese_mode_button.set_text("cheese", m_data.default_font, sf::Color::Red);
 	}
 
 	explicit custom_bag_game_screen_prev_screen(all_game_data& t_data) :
@@ -40,6 +41,8 @@ struct custom_bag_game_screen_prev_screen {
 		//fix_buttons();
 		m_play_vs_ai_button.set_text("vs ai",m_data.default_font,sf::Color::Red);
 		m_play_solo_button.set_text("solo", m_data.default_font, sf::Color::Red);
+		m_40Lsprint_button.set_text("40L sprint", m_data.default_font, sf::Color::Red);
+		m_cheese_mode_button.set_text("cheese", m_data.default_font, sf::Color::Red);
 	}
 
 	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& settings);
@@ -68,11 +71,14 @@ struct custom_bag_game_screen_prev_screen {
 			m_bag.push_back(tetris_piece::I);
 			fix_buttons();
 		});
+
 		if (m_bag.size() > 1) {
 			m_remove_button.set_on_press([this]() {
 				m_bag.pop_back();
 				fix_buttons();
 			});
+		}else {
+			m_remove_button.set_on_press([]() {});
 		}
 	}
 
@@ -87,6 +93,7 @@ private:
 	boring_button m_play_vs_ai_button = boring_button(100,600,100,50);
 	boring_button m_play_solo_button = boring_button(220,600,100,50);
 	boring_button m_40Lsprint_button = boring_button(340,600,100,50);
+	boring_button m_cheese_mode_button = boring_button(460,600,100,50);
 
 	bool m_buttons_need_to_be_fixed = true;
 	//std::array<int, 5000> wat = {};
@@ -94,7 +101,7 @@ private:
 };
 
 
-
+//unused?
 struct custom_bag_game_screen {
 	explicit custom_bag_game_screen(tetris_game_settings player_settings, std::vector<tetris_piece> bag):
 		player_ptr(std::make_unique<tetris_game_keyboard_player>(std::move(player_settings),std::move(bag))) { }
@@ -178,6 +185,8 @@ inline std::optional<screen_thingy> custom_bag_game_screen_prev_screen::update(e
 		return playing_solo_state(m_data,std::move(m_bag));
 	} else if (m_40Lsprint_button.update(event_handler, event_handler.time_since_last_poll())) {
 		return sprint_mode(m_data,40, std::move(m_bag));
+	}else if(m_cheese_mode_button.update(event_handler,event_handler.time_since_last_poll())) {
+		return cheese_prev_screen(m_data, 2s, 1, std::move(m_bag));
 	}
 
 	m_add_button.update(event_handler, event_handler.time_since_last_poll());
@@ -201,6 +210,7 @@ inline std::optional<screen_thingy> custom_bag_game_screen_prev_screen::update(e
 	m_play_vs_ai_button.draw(event_handler.window());
 	m_play_solo_button.draw(event_handler.window());
 	m_40Lsprint_button.draw(event_handler.window());
+	m_cheese_mode_button.draw(event_handler.window());
 	
 	return std::nullopt;
 }

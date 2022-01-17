@@ -1,6 +1,10 @@
 #pragma once
 #include "start_screen.h"
 #include "game_data.h"
+#include <fmt/format.h>
+#include <fmt/core.h>
+#include <fmt/chrono.h>
+
 
 coroutine_screen sprint_mode(all_game_data& data, int number_of_lines, std::optional<std::vector<tetris_piece>> bag = std::nullopt);
 

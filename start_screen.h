@@ -41,6 +41,7 @@ struct start_screen {
 
 		m_custom_bag_button.set_text("custom bag",m_data.default_font,sf::Color::Red);
 
+		m_cheese_mode_button.set_text("cheese mode",m_data.default_font,sf::Color::Red);
 	}
 
 	std::optional<screen_thingy> update(event_handler_t& event_handler, game_keybinds& settings);
@@ -54,6 +55,7 @@ private:
 	boring_button m_watch_ai_button = boring_button(400,560,200,100);
 	boring_button m_settings_button = boring_button(700,200,200,100);
 	boring_button m_custom_bag_button = boring_button(700,320,200,100);
+	boring_button m_cheese_mode_button = boring_button(700,440,200,100);
 
 	
 };

@@ -7,7 +7,7 @@
 #include <SFML/Window.hpp>
 
 #include "screen.h"
-
+#include "meta_fns.h"
 
 struct imbutton { };
 
@@ -538,4 +538,259 @@ struct property_land {
 	
 
 };
+
+template<typename T,typename F>
+const T& value_or_thing(F& f) {
+	if constexpr(std::convertible_to<F,T>) {
+		return T(f);
+	} else {
+		return f();
+	}
+}
+
+template<typename...T>
+struct cooler_button {
+
+	cooler_button(int x,int y,int w,int h,T... ts):m_x(x),m_y(y),m_w(w),m_h(h),callbacks(std::move(ts)...) {}
+
+	bool update(event_handler_t& event_handler) {
+		const auto [mouse_x, mouse_y] = event_handler.current_mouse_position();
+		const auto in_bounding_box =
+			mouse_x >= m_x && mouse_x <= m_x + m_w && mouse_y >= m_y && mouse_y <= m_h + m_y;
+		const auto time_since_last_update = event_handler.time_since_last_poll();
+
+		if (event_handler.is_held(sf::Mouse::Left)) {
+			if (!m_pressed_not_over && !m_pressed_over) {
+				if (in_bounding_box) {
+					m_pressed_over = true;
+					return true;
+				}
+				else {
+					m_pressed_not_over = true;
+					return false;
+				}
+			}
+			else if (m_pressed_over) {
+				if (!in_bounding_box) {
+					m_pressed_not_over = true;
+					m_pressed_over = false;
+					m_click_over_time = 0ms;
+					return false;
+				}
+				else {
+					m_click_over_time += time_since_last_update;
+					return true;
+				}
+			}
+			else if (m_pressed_not_over) {
+
+			}
+		}
+		else {
+			if (m_pressed_over) {
+				m_pressed_not_over = m_pressed_over = false;
+				//return true;
+			}
+			m_pressed_not_over = m_pressed_over = false;
+		}
+		m_hovered = in_bounding_box;
+		if (m_hovered) {
+			m_hovered_time += time_since_last_update;
+		}
+		else {
+			m_hovered_time = 0ms;
+		}
+		return false;
+	}
+
+	void draw(sf::RenderTarget& window) {
+		//std::apply();
+	}
+
+private:
+	int m_x = 0;
+	int m_y = 0;
+	int m_w = 0;
+	int m_h = 0;
+	bool m_pressed_not_over = false;
+	bool m_hovered = false;
+	bool m_pressed_over = false;
+
+	std::chrono::milliseconds m_hovered_time = 0ms;
+	std::chrono::milliseconds m_click_over_time = 0ms;
+
+	std::tuple<T...> callbacks;
+};
+
+namespace button_properties_wat {
+
+	template<typename T,typename V = void>
+	auto value_type_value() {
+		if constexpr(std::invocable<T>) {
+			return std::declval<T>()();
+		}else {
+			return std::declval<T>();
+		}
+	}
+
+	template<typename C,typename T>
+	struct property_t {
+
+		explicit property_t(T a) :m_me(std::move(a)) {}
+
+		decltype(value_type_value<T>()) value() {
+			if constexpr (std::invocable<T>) {
+				return m_me();
+			}
+			else {
+				return m_me;
+			}
+		}
+		using property_value = C;
+		using return_type = decltype(value_type_value<T>());
+	private:
+		T m_me;
+	};
+
+	template<typename C>
+	struct create_property_function {
+
+		template<std::movable T>
+		property_t<C,T> operator()(T a)const noexcept {
+			return property_t<C, T>(std::move(a));
+		}
+	};
+
+	template<typename T,typename E,typename V = void>
+	concept property_for = std::same_as<E, typename T::property_value> && (std::same_as<V,void> || std::convertible_to<typename T::return_value,V>);
+
+	template<typename T>
+	int last_true_idx(const T& a) {
+		for (int i = a.size() - 1; i >= 0; --i) {
+			if (a[i]) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	struct hover_t{};
+	struct thickness_t{};
+	struct active_t{};
+
+	template<typename ...T>
+	struct property_holder {
+		explicit property_holder(T... a):m_properties(std::move(a)...){}
+
+		template<typename C,typename R = void>
+		decltype(auto) value() {
+			constexpr std::array<bool, sizeof...(T)> arr = {property_for<T,C>...};
+			constexpr auto idx = last_true_idx(arr);
+			if constexpr (std::is_void_v<R>) {
+				return std::get<idx>(m_properties).value();
+			}else {
+				return R(std::get<idx>(m_properties).value());
+			}
+		}
+
+		template<typename C,typename F,typename R = void>
+		decltype(auto) value_or_default(F&& f) {
+			constexpr std::array<bool, sizeof...(T)> arr = { property_for<T,C>... };
+			constexpr auto idx = last_true_idx(arr);
+			if constexpr (idx != -1) {
+				if constexpr (std::is_void_v<R>) {
+					return std::get<idx>(m_properties).value();
+				}else {
+					return R(std::get<idx>(m_properties).value());
+				}
+			}else {
+				if constexpr (std::is_void_v<R>) {
+					if constexpr (std::invocable<F>) {
+						return f();
+					}else {
+						return std::forward<F>(f);
+					}
+				}
+				else {
+					if constexpr (std::invocable<F>) {
+						return R(f());
+					}
+					else {
+						return R(std::forward<F>(f));
+					}
+				}
+			}
+		}
+
+		template<typename C,typename F>
+		void apply_on_all(F&& f) {
+			std::apply([&](auto&... p) {
+				([&]<typename U>(U & u) {
+					if constexpr(property_for<U,C>) {
+						f(u);
+					}
+				}(p),...);
+			}, m_properties);
+		}
+
+	private:
+		std::tuple<T...> m_properties;
+	};
+
+	template<typename... T>
+	struct border: property_holder<T...> {
+		explicit border(sf::Color c, T... s) :property_holder(std::move(s)...) ,m_color(c) {}
+
+		void update(event_handler_t& event_handler, std::optional<std::chrono::milliseconds> hover_time,std::optional<std::chrono::milliseconds> click_time) {
+			//do nothing!
+			
+		}
+
+		void draw(int x,int y,int w,int h,bool hovered, bool clicked, sf::RenderTarget& window) {
+			const int thickness = [&]() {
+				return 1;
+			}();
+
+			const auto colour = [&]() {
+				return m_color;
+			}();
+
+			sf::RectangleShape box;
+			box.setSize(sf::Vector2f((float)w, (float)h));
+			box.setPosition((float)x, (float)y);
+			box.setOutlineColor(colour);
+			window.draw(box);
+		}
+
+		static int draw_index() noexcept {
+			return 1;
+		}
+
+	private:
+		sf::Color m_color;
+	};
+
+	template<typename T>
+	struct on_click {
+
+		explicit on_click(T a):m_function(std::move(a)){}
+
+		void draw(int x, int y, int w, int h, bool hovered, bool clicked, sf::RenderTarget& window) {
+			
+		}
+
+	private:
+		T m_function;
+	};
+
+
+
+}
+template<typename...T>
+auto make_button(int x,int y,int w,int h,T&&... button_stuffs) {
+	//auto button = make_button(x,y,w,h,border(white,pixel(1)),on_click([](){}),on_mouse_over(...),text("",color),background(black,hover(red),click(blue)))
+	return cooler_button(x, y, w, h, std::forward<T>(button_stuffs)...);
+
+}
+
 

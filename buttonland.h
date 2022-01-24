@@ -548,6 +548,33 @@ const T& value_or_thing(F& f) {
 	}
 }
 
+template<typename T>
+struct scope_guard {
+	scope_guard(T a) :b(std::forward<T>(a)){}
+	~scope_guard() {
+		b();
+	}
+
+
+	T b;
+};
+
+template<typename T>
+scope_guard(T&&)->scope_guard<T>;
+
+template<typename T>
+concept drawableland = requires(T b)
+{
+	{b.draw(1, 1, 1, 1, std::optional<std::chrono::milliseconds>(), std::optional<std::chrono::milliseconds>(), std::declval<sf::RenderTarget&>())};
+	{b.draw_index() };
+};
+
+template<typename T>
+concept updateableland= requires(T b)
+{
+	b.update(std::declval<event_handler_t&>(), std::optional<std::chrono::milliseconds>(), std::optional<std::chrono::milliseconds>());
+};
+
 template<typename...T>
 struct cooler_button {
 
@@ -559,10 +586,14 @@ struct cooler_button {
 			mouse_x >= m_x && mouse_x <= m_x + m_w && mouse_y >= m_y && mouse_y <= m_h + m_y;
 		const auto time_since_last_update = event_handler.time_since_last_poll();
 
+		const auto s = scope_guard([&]() {
+			call_all_callback_updates(event_handler);
+		});
 		if (event_handler.is_held(sf::Mouse::Left)) {
 			if (!m_pressed_not_over && !m_pressed_over) {
 				if (in_bounding_box) {
 					m_pressed_over = true;
+
 					return true;
 				}
 				else {
@@ -604,7 +635,17 @@ struct cooler_button {
 	}
 
 	void draw(sf::RenderTarget& window) {
-		//std::apply();
+		std::apply([&](auto&... a) {
+			(([&]<typename U>(U& b) {
+				if constexpr (drawableland<U>) {
+					std::cout << "potatoland" << std::endl;
+					b.draw(m_x, m_y, m_w, m_h,
+						m_hovered ? std::optional(m_hovered_time) : std::nullopt,
+						m_pressed_over ? std::optional(m_click_over_time) : std::nullopt,
+						window);
+				}
+			}(a)),...);
+		}, callbacks);
 	}
 
 private:
@@ -618,6 +659,19 @@ private:
 
 	std::chrono::milliseconds m_hovered_time = 0ms;
 	std::chrono::milliseconds m_click_over_time = 0ms;
+
+	void call_all_callback_updates(event_handler_t& e) {
+		std::apply([&](auto&... a) {
+			([&]<typename U>(U& b) {
+				if constexpr (updateableland<U>) {
+					b.update(e, 
+						m_hovered ? std::optional(m_hovered_time):std::nullopt, 
+						m_pressed_over ? std::optional(m_click_over_time) : std::nullopt
+					);
+				}
+			}(a),...);
+		}, callbacks);
+	}
 
 	std::tuple<T...> callbacks;
 };
@@ -678,6 +732,26 @@ namespace button_properties_wat {
 	struct thickness_t{};
 	struct active_t{};
 
+	struct init_delay_t{};
+	struct repeat_delay_t{};
+
+	struct fake_optional {
+		fake_optional() = default;
+
+		fake_optional(std::nullopt_t){}
+
+		constexpr bool has_value()const noexcept{
+			return false;
+		}
+
+		constexpr operator bool() const noexcept{
+			return false;
+		}
+
+
+
+	};
+
 	template<typename ...T>
 	struct property_holder {
 		explicit property_holder(T... a):m_properties(std::move(a)...){}
@@ -722,6 +796,18 @@ namespace button_properties_wat {
 			}
 		}
 
+		template<typename C>
+		auto try_value() {
+			constexpr std::array<bool, sizeof...(T)> arr = { property_for<T,C>... };
+			constexpr auto idx = last_true_idx(arr);
+			if constexpr (idx != -1) {
+				return std::optional(std::get<idx>(m_properties).value());
+			}else {
+				return std::nullopt;
+			}
+			
+		}
+
 		template<typename C,typename F>
 		void apply_on_all(F&& f) {
 			std::apply([&](auto&... p) {
@@ -733,32 +819,46 @@ namespace button_properties_wat {
 			}, m_properties);
 		}
 
+		template<typename C>
+		bool has_value_for() const noexcept{
+			constexpr std::array<bool, sizeof...(T)> arr = { property_for<T,C>... };
+			return std::find(arr.begin(), arr.end(), true) != arr.end();
+		}
+
 	private:
 		std::tuple<T...> m_properties;
 	};
 
 	template<typename... T>
 	struct border: property_holder<T...> {
-		explicit border(sf::Color c, T... s) :property_holder(std::move(s)...) ,m_color(c) {}
+		explicit border(sf::Color c, T... s) :property_holder<T...>(std::move(s)...) ,m_color(c) {}
 
 		void update(event_handler_t& event_handler, std::optional<std::chrono::milliseconds> hover_time,std::optional<std::chrono::milliseconds> click_time) {
-			//do nothing!
-			
+			//do nothing
 		}
 
-		void draw(int x,int y,int w,int h,bool hovered, bool clicked, sf::RenderTarget& window) {
-			const int thickness = [&]() {
-				return 1;
-			}();
+		void draw(	int x,int y,int w,int h, 
+					std::optional<std::chrono::milliseconds> hover_time, 
+					std::optional<std::chrono::milliseconds> click_time, sf::RenderTarget& window)const {
+
+			const int thickness = this->template value_or_default<thickness_t>(1);
 
 			const auto colour = [&]() {
-				return m_color;
+				if (click_time.has_value()) {
+					return this->template value_or_default<active_t>(
+						[&]() {return this->template value_or_default<hover_t>(m_color); }
+					);
+				}else if(hover_time.has_value()) {
+					return this->template value_or_default<hover_t>(m_color);
+				} 
+				return m_color;				
 			}();
 
 			sf::RectangleShape box;
 			box.setSize(sf::Vector2f((float)w, (float)h));
 			box.setPosition((float)x, (float)y);
 			box.setOutlineColor(colour);
+			box.setOutlineThickness(thickness);
 			window.draw(box);
 		}
 
@@ -770,17 +870,88 @@ namespace button_properties_wat {
 		sf::Color m_color;
 	};
 
-	template<typename T>
-	struct on_click {
+	
 
-		explicit on_click(T a):m_function(std::move(a)){}
+	template<typename... T>
+	struct background : property_holder<T...> {
+		explicit background(sf::Color c, T... s) :property_holder<T...>(std::move(s)...), m_color(c) {}
 
-		void draw(int x, int y, int w, int h, bool hovered, bool clicked, sf::RenderTarget& window) {
-			
+		void update(event_handler_t& event_handler, std::optional<std::chrono::milliseconds> hover_time, std::optional<std::chrono::milliseconds> click_time) {
+			//do nothing
+		}
+
+		void draw(int x, int y, int w, int h,
+			std::optional<std::chrono::milliseconds> hover_time,
+			std::optional<std::chrono::milliseconds> click_time, sf::RenderTarget& window) {
+
+			const int thickness = this->template value_or_default<thickness_t>(1);
+
+			const auto colour = [&]() {
+				if (click_time.has_value()) {
+					return this->template value_or_default<active_t>(
+						[&]() {return this->template value_or_default<hover_t>(m_color); }
+					);
+				}
+				else if (hover_time.has_value()) {
+					return this->template value_or_default<hover_t>(m_color);
+				}
+				return m_color;
+			}();
+
+			sf::RectangleShape box;
+			box.setSize(sf::Vector2f((float)w, (float)h));
+			box.setPosition((float)x, (float)y);
+			box.setFillColor(colour);
+			window.draw(box);
+		}
+
+		static int draw_index() noexcept {
+			return 0;
 		}
 
 	private:
-		T m_function;
+		sf::Color m_color;
+	};
+
+
+
+
+	template<typename F,typename... Ts>
+	struct on_click:property_holder<Ts...> {
+
+		explicit on_click(F a,Ts... properties):
+			property_holder<Ts...>(std::move(properties)...),
+			m_function(std::move(a)){}
+
+
+
+		void update(event_handler_t& e, std::optional<std::chrono::milliseconds> hover_time, std::optional<std::chrono::milliseconds> click_time) {
+			
+			if(click_time.has_value()) {
+				const auto init_delay = this->template value_or_default<init_delay_t>(0ms);
+				if(click_time.value() < init_delay) {
+					return;
+				}
+				const auto repeat_delay = this->template value_or_default<repeat_delay_t>(std::optional<std::chrono::milliseconds>());
+				if(!m_time_of_last_call) {
+					m_time_of_last_call = click_time.value();
+					std::invoke(m_function);
+				}else {					
+					if(repeat_delay.has_value() && click_time.value() - m_time_of_last_call.value() >= repeat_delay.value()) {
+						m_time_of_last_call = click_time;
+						std::invoke(m_function);
+					}
+				}
+			}else {
+				m_time_of_last_call = std::nullopt;
+			}
+		}
+
+
+
+	private:
+		F m_function;
+		std::optional<std::chrono::milliseconds> m_time_of_last_call;
 	};
 
 

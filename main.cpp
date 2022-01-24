@@ -67,7 +67,8 @@ coroutine_screen wat_screen(all_game_data& game_data) {
 	//auto& player = *watmoreland;
 	auto watmoreworldland = std::make_unique<decltype(std::declval<tetris_game_keyboard_player>().get_update().game_state)>();
 	co_await wait_for_next_update();
-	co_return start_screen(game_data);
+	//co_return start_screen(game_data);
+	co_return start_screen2(game_data);
 	while(true) {
 		auto [event_handler, settings] = co_await wait_for_next_update();
 		const auto time_step = event_handler.time_since_last_poll();

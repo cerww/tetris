@@ -62,3 +62,5 @@ private:
 
 
 
+coroutine_screen start_screen2(all_game_data& data);
+
